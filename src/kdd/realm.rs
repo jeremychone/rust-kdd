@@ -2,8 +2,161 @@
 // kdd::realm - All realm related actions
 ////
 
-use super::{error::KddError, Kdd, Realm};
+use std::{
+	collections::{HashMap, HashSet},
+	fs::read_dir,
+	path::PathBuf,
+};
 
+use yaml_rust::Yaml;
+
+use crate::yutils::{as_bool, as_string, as_strings};
+
+use super::{
+	error::KddError,
+	provider::{AwsProvider, DesktopProvider, Provider, RealmProvider},
+	Kdd,
+};
+
+const REALM_KEY_YAML_DIR: &str = "yaml_dir";
+const REALM_KEY_CONTEXT: &str = "context";
+const REALM_KEY_CONFIRM_DELETE: &str = "confirm_delete";
+const REALM_KEY_PROJECT: &str = "project"; // for GKE
+const REALM_KEY_REGISTRY: &str = "registry"; // must on AWS (inferred for gke and docker-dekstop)
+const REALM_KEY_PROFILE: &str = "profile"; // for AWS
+const REALM_KEY_CONFIGURATIONS: &str = "default_configurations"; // for AWS
+
+//// Realm Struct
+#[derive(Debug)]
+pub struct Realm {
+	pub name: String,
+	pub confirm_delete: bool,
+	pub vars: HashMap<String, String>,
+	provider: RealmProvider,
+	yaml_dirs: Vec<PathBuf>,
+	context: Option<String>,
+	pub registry: Option<String>,
+	pub profile: Option<String>,
+	pub project: Option<String>,
+	pub default_configurations: Option<Vec<String>>,
+}
+
+//// Realm Public Methods
+impl Realm {
+	pub fn provider_from_ctx(ctx: &str) -> Result<RealmProvider, KddError> {
+		if ctx.contains("docker-desktop") {
+			Ok(RealmProvider::Desktop(DesktopProvider))
+		} else if ctx.starts_with("arn:aws") {
+			Ok(RealmProvider::Aws(AwsProvider))
+		} else {
+			Err(KddError::ContextNotSupported(ctx.to_string()))
+		}
+	}
+
+	pub fn provider(&self) -> &dyn Provider {
+		match &self.provider {
+			RealmProvider::Aws(p) => p as &dyn Provider,
+			RealmProvider::Desktop(p) => p as &dyn Provider,
+		}
+	}
+
+	pub fn profile(&self) -> String {
+		self.profile.as_deref().unwrap_or("default").to_string()
+	}
+
+	pub fn k8s_files(&self, names: Option<&[&str]>) -> Vec<PathBuf> {
+		let mut yaml_paths: Vec<PathBuf> = Vec::new();
+
+		// if we have a names above
+		if let Some(names) = names {
+			for name in names {
+				let mut yaml_dirs = self.yaml_dirs.iter();
+				loop {
+					match yaml_dirs.next() {
+						Some(dir_path) => {
+							let yaml_path = dir_path.join(format!("{}.yaml", name));
+							if yaml_path.is_file() {
+								yaml_paths.push(yaml_path);
+								break;
+							}
+						}
+						None => break,
+					}
+				}
+			}
+		}
+		// otherwise, get all of the file (first  file_stem wins)
+		else {
+			let mut stems_set: HashSet<String> = HashSet::new();
+
+			for yaml_dir in &self.yaml_dirs {
+				if let Ok(paths) = read_dir(yaml_dir) {
+					for path in paths {
+						if let Ok(path) = path {
+							let path = path.path();
+							if let (Some(stem), Some(ext)) = (path.file_stem().map(|v| v.to_str()).flatten(), path.extension().map(|v| v.to_str()).flatten()) {
+								if path.is_file() && ext.to_lowercase() == "yaml" && !stems_set.contains(stem) {
+									stems_set.insert(stem.to_string());
+									yaml_paths.push(path);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Note: Should be ok to be lossy here
+		yaml_paths.sort_by_key(|v| v.file_stem().unwrap().to_string_lossy().to_string());
+
+		yaml_paths
+	}
+
+	pub fn k8s_out_dir(&self) -> PathBuf {
+		// Note: There is always at least one yaml_dir, per parse_realm logic
+		let yaml_dir = &self.yaml_dirs[0];
+		yaml_dir.join(".out/").join(&self.name)
+	}
+}
+
+//// Realm Builder(s)
+impl Realm {
+	pub fn from_yaml(kdd_dir: &PathBuf, name: &str, yaml: &Yaml) -> Result<Realm, KddError> {
+		let ctx = as_string(yaml, REALM_KEY_CONTEXT).unwrap_or("docker-desktop".to_string());
+		let provider = Realm::provider_from_ctx(&ctx)?;
+
+		// NOTE: Must have at least one yaml_dir
+		let yaml_dir = as_string(yaml, REALM_KEY_YAML_DIR).unwrap_or_else(|| format!("k8s/{}", name));
+		let yaml_dirs = vec![kdd_dir.join(yaml_dir)];
+
+		let mut vars: HashMap<String, String> = HashMap::new();
+		// add all of the root variables as vars
+		if let Some(map) = yaml.as_hash() {
+			for (name, val) in map.iter() {
+				if let (Some(name), Some(val)) = (name.as_str(), val.as_str()) {
+					vars.insert(name.to_owned(), val.to_owned());
+				}
+			}
+		}
+
+		let confirm_delete = as_bool(yaml, REALM_KEY_CONFIRM_DELETE).unwrap_or(true);
+
+		Ok(Realm {
+			name: name.to_string(),
+			confirm_delete,
+			vars,
+			provider: provider,
+			yaml_dirs,
+			context: as_string(yaml, REALM_KEY_CONTEXT),
+			project: as_string(yaml, REALM_KEY_PROJECT),
+			registry: as_string(yaml, REALM_KEY_REGISTRY),
+			profile: as_string(yaml, REALM_KEY_PROFILE),
+			default_configurations: as_strings(yaml, REALM_KEY_CONFIGURATIONS),
+		})
+	}
+}
+
+//// Kdd Realm Methods
 impl<'a> Kdd<'a> {
 	pub fn realm_for_ctx(&self, ctx: &str) -> Option<&Realm> {
 		self.realms().into_iter().find(|v| v.context.as_deref().map(|vc| vc == ctx).unwrap_or(false))

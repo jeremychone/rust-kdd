@@ -2,7 +2,7 @@
 // kdd::docker - handle all docker actions
 ////
 
-use super::{error::KddError, Block, Kdd, Realm};
+use super::{error::KddError, realm::Realm, Block, Kdd};
 use crate::utils::exec_cmd_args;
 
 impl<'a> Kdd<'a> {

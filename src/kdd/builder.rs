@@ -1,14 +1,65 @@
-use std::{path::Path, process::Command};
+////////////////////////////////////
+// kdev::builder - The the kdd Builder component and its Exec component
+////
 
-use yaml_rust::Yaml;
-
+use super::error::KddError;
 use crate::{
 	utils::path_to_string,
 	yutils::{as_string, as_strings},
 };
-
-use super::error::KddError;
 use pathdiff::diff_paths;
+use std::{path::Path, process::Command};
+use yaml_rust::Yaml;
+
+//// Builder Struct
+#[derive(Debug)]
+pub struct Builder {
+	pub name: String,
+	pub when_file: Option<String>,
+	pub exec: Exec,
+}
+
+//// Builder Builder(s)
+impl Builder {
+	pub fn from_yaml(yaml: &Yaml) -> Option<Builder> {
+		if let Some(name) = yaml["name"].as_str() {
+			let exec = match Exec::from_yaml(&yaml["exec"]) {
+				Ok(exec) => exec,
+				Err(ex) => {
+					println!(
+						"KDD PARSING WARNING - Builder {} does not have a value exec element. Cause: {}. Skipping",
+						name, ex
+					);
+					return None;
+				}
+			};
+
+			let when_file = as_string(yaml, "when_file");
+
+			if when_file.is_none() {
+				println!(
+					"KDD PARSING WARNING - Processor {} does not have an .when_file property. Will never get triggered",
+					name
+				);
+			}
+
+			Some(Builder {
+				name: name.to_owned(),
+				when_file,
+				exec,
+			})
+		} else {
+			None
+		}
+	}
+}
+
+// region:    Exec Component
+#[derive(Debug)]
+pub struct Exec {
+	cmd: Cmd, // from base dir if not prefixed, if prefixed with ./ then block_dir is prefixed
+	args: Vec<String>,
+}
 
 #[derive(Debug)]
 enum Cmd {
@@ -17,13 +68,7 @@ enum Cmd {
 	Relative(String), // local to entity (e.g., block) e.g. ./module/.bin/
 }
 
-#[derive(Debug)]
-pub struct Exec {
-	cmd: Cmd, // from base dir if not prefixed, if prefixed with ./ then block_dir is prefixed
-	args: Vec<String>,
-}
-
-// region:    Exec From
+//// Exec Builder(s)
 impl Exec {
 	pub fn from_yaml(y_exec: &Yaml) -> Result<Self, KddError> {
 		let cmd_name = as_string(&y_exec, "cmd").ok_or_else(|| KddError::NoExecCmd)?;
@@ -42,9 +87,8 @@ impl Exec {
 		Ok(Exec { cmd, args })
 	}
 }
-// endregion: Exec From
 
-// region:    Exec Impls
+//// Exec Public Methods
 impl Exec {
 	pub fn execute(&self, kdd_dir: &Path, block_dir: &Path) {
 		let cwd = block_dir;
@@ -87,4 +131,4 @@ impl Exec {
 		}
 	}
 }
-// endregion: Exec Impls
+// endregion: Exec Component

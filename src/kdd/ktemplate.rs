@@ -12,7 +12,7 @@ use std::{
 use handlebars::RenderError;
 use pathdiff::diff_paths;
 
-use super::{error::KddError, Kdd, Realm};
+use super::{error::KddError, realm::Realm, Kdd};
 
 impl<'a> Kdd<'a> {
 	pub fn k_templates(&self, realm: &Realm, names: Option<&[&str]>, print_full: bool) -> Result<Vec<PathBuf>, KddError> {

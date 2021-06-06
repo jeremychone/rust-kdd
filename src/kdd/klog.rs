@@ -2,9 +2,7 @@
 // kdd::klog - implementation of the kubectl log on multiple services
 ////
 
-use super::{error::KddError, Kdd, Realm};
-use crate::utils::exec_to_stdout;
-use serde_json::Value;
+use super::{error::KddError, Kdd, Pod, Realm};
 use std::{
 	collections::{HashMap, HashSet},
 	process::Stdio,
@@ -21,12 +19,6 @@ const BUF_LOG_CAPACITY: usize = 50;
 const BUF_MSTIME_TO_LOG: u64 = 500;
 
 #[derive(Debug)]
-struct Pod {
-	service_name: String,
-	name: String,
-}
-
-#[derive(Debug, Clone)]
 struct LogMessage {
 	service_name: String,
 	pod_name: String,
@@ -35,8 +27,7 @@ struct LogMessage {
 
 impl<'a> Kdd<'a> {
 	pub fn k_log(&self, _realm: &Realm, names: Option<&[&str]>) -> Result<(), KddError> {
-		let pods = Self::k_get_json_items("pod")?;
-		let mut pods = Self::list_pods(&pods);
+		let mut pods = self.k_list_pods()?;
 
 		//// filter the names
 		if let Some(names) = names {
@@ -48,40 +39,6 @@ impl<'a> Kdd<'a> {
 
 		Ok(())
 	}
-
-	// region:    Get K8s entities
-
-	fn list_pods(json_pods: &Vec<Value>) -> Vec<Pod> {
-		let mut pods: Vec<Pod> = Vec::new();
-
-		for json_pod in json_pods {
-			match (json_pod.pointer("/metadata/name"), json_pod.pointer("/metadata/labels/run")) {
-				(Some(Value::String(pod_name)), Some(Value::String(service_name))) => {
-					pods.push(Pod {
-						name: pod_name.to_owned(),
-						service_name: service_name.to_owned(),
-					});
-				}
-				_ => {
-					// println!("->> UNKNOWN\n{}\n\n", to_string_pretty(pod).unwrap());
-				}
-			}
-		}
-		pods
-	}
-
-	fn k_get_json_items(entity_type: &str) -> Result<Vec<Value>, KddError> {
-		let args = &["get", entity_type, "-o", "json"];
-		let json = exec_to_stdout(None, "kubectl", args)?;
-		let mut json = serde_json::from_str::<Value>(&json)?;
-
-		match json["items"].take() {
-			Value::Array(items) => Ok(items),
-			_ => Err(KddError::KGetObjectsEmpty(entity_type.to_string())),
-		}
-	}
-
-	// endregion: Get K8s entities
 }
 
 #[tokio::main(flavor = "current_thread")]

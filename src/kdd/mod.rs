@@ -2,10 +2,11 @@
 // kdd - Main module file
 ////
 
+mod block;
 mod build;
+mod builder;
 mod docker;
 pub mod error;
-mod exec;
 mod klog;
 mod ktemplate;
 mod kube;
@@ -13,21 +14,17 @@ mod loader;
 mod provider;
 mod realm;
 
-use fs::read_dir;
 use handlebars::Handlebars;
 use std::{
-	collections::{HashMap, HashSet},
-	fs,
+	collections::HashMap,
 	path::{Path, PathBuf},
 };
-use yaml_rust::Yaml;
 
-use self::{
-	error::KddError,
-	exec::Exec,
-	provider::{AwsProvider, DesktopProvider, Provider, RealmProvider},
-};
+use crate::utils::exec_to_stdout;
+
+use self::{block::Block, builder::Builder, error::KddError, realm::Realm};
 use indexmap::IndexMap;
+use serde_json::Value;
 
 #[derive(Debug)]
 pub struct Kdd<'a> {
@@ -44,119 +41,13 @@ pub struct Kdd<'a> {
 	builders: Vec<Builder>,
 }
 
-// region:    Realm
 #[derive(Debug)]
-pub struct Realm {
+pub struct Pod {
 	pub name: String,
-	pub confirm_delete: bool,
-	pub vars: HashMap<String, String>,
-	pub provider: RealmProvider,
-	yaml_dirs: Vec<PathBuf>,
-	pub context: Option<String>,
-	pub registry: Option<String>,
-	pub profile: Option<String>,
-	pub project: Option<String>,
-	pub default_configurations: Option<Vec<String>>,
+	pub service_name: String,
 }
 
-impl Realm {
-	pub fn provider_from_ctx(ctx: &str) -> Result<RealmProvider, KddError> {
-		if ctx.contains("docker-desktop") {
-			Ok(RealmProvider::Desktop(DesktopProvider))
-		} else if ctx.starts_with("arn:aws") {
-			Ok(RealmProvider::Aws(AwsProvider))
-		} else {
-			Err(KddError::ContextNotSupported(ctx.to_string()))
-		}
-	}
-
-	pub fn provider(&self) -> &dyn Provider {
-		match &self.provider {
-			RealmProvider::Aws(p) => p as &dyn Provider,
-			RealmProvider::Desktop(p) => p as &dyn Provider,
-		}
-	}
-
-	pub fn profile(&self) -> String {
-		self.profile.as_deref().unwrap_or("default").to_string()
-	}
-
-	pub fn k8s_files(&self, names: Option<&[&str]>) -> Vec<PathBuf> {
-		let mut yaml_paths: Vec<PathBuf> = Vec::new();
-
-		// if we have a names above
-		if let Some(names) = names {
-			for name in names {
-				let mut yaml_dirs = self.yaml_dirs.iter();
-				loop {
-					match yaml_dirs.next() {
-						Some(dir_path) => {
-							let yaml_path = dir_path.join(format!("{}.yaml", name));
-							if yaml_path.is_file() {
-								yaml_paths.push(yaml_path);
-								break;
-							}
-						}
-						None => break,
-					}
-				}
-			}
-		}
-		// otherwise, get all of the file (first  file_stem wins)
-		else {
-			let mut stems_set: HashSet<String> = HashSet::new();
-
-			for yaml_dir in &self.yaml_dirs {
-				if let Ok(paths) = read_dir(yaml_dir) {
-					for path in paths {
-						if let Ok(path) = path {
-							let path = path.path();
-							if let (Some(stem), Some(ext)) = (path.file_stem().map(|v| v.to_str()).flatten(), path.extension().map(|v| v.to_str()).flatten()) {
-								if path.is_file() && ext.to_lowercase() == "yaml" && !stems_set.contains(stem) {
-									stems_set.insert(stem.to_string());
-									yaml_paths.push(path);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		// Note: Should be ok to be lossy here
-		yaml_paths.sort_by_key(|v| v.file_stem().unwrap().to_string_lossy().to_string());
-
-		yaml_paths
-	}
-
-	pub fn k8s_out_dir(&self) -> PathBuf {
-		// Note: There is always at least one yaml_dir, per parse_realm logic
-		let yaml_dir = &self.yaml_dirs[0];
-		yaml_dir.join(".out/").join(&self.name)
-	}
-}
-// endregion: Realm
-
-// region:    Block
-#[derive(Debug, Default)]
-pub struct Block {
-	pub name: String,
-	pub dir: Option<String>,
-	pub dependencies: Option<Vec<String>>,
-	pub map: Option<Yaml>,
-}
-
-#[derive(Debug)]
-pub struct Builder {
-	name: String,
-	when_file: Option<String>,
-	exec: Exec,
-}
-// endregion: Block
-
-// region:    Kdev Impls
-
-// Kdev element info implementations
+//// Kdev element info implementations
 impl<'a> Kdd<'a> {
 	/// Returns the director path of this block dir (relative to cwd)
 	pub fn get_block_dir(&self, block: &Block) -> PathBuf {
@@ -193,4 +84,37 @@ impl<'a> Kdd<'a> {
 		format!("{}-{}", self.system, block.name)
 	}
 }
-// endregion: Kdev Impls
+
+//// Kdev Kubectl Queries
+impl<'a> Kdd<'a> {
+	fn k_list_pods(&self) -> Result<Vec<Pod>, KddError> {
+		let json_pods = Self::k_get_json_items("pod")?;
+		let mut pods: Vec<Pod> = Vec::new();
+
+		for json_pod in json_pods {
+			match (json_pod.pointer("/metadata/name"), json_pod.pointer("/metadata/labels/run")) {
+				(Some(Value::String(pod_name)), Some(Value::String(service_name))) => {
+					pods.push(Pod {
+						name: pod_name.to_owned(),
+						service_name: service_name.to_owned(),
+					});
+				}
+				_ => {
+					// println!("->> UNKNOWN\n{}\n\n", to_string_pretty(pod).unwrap());
+				}
+			}
+		}
+		Ok(pods)
+	}
+
+	fn k_get_json_items(entity_type: &str) -> Result<Vec<Value>, KddError> {
+		let args = &["get", entity_type, "-o", "json"];
+		let json = exec_to_stdout(None, "kubectl", args)?;
+		let mut json = serde_json::from_str::<Value>(&json)?;
+
+		match json["items"].take() {
+			Value::Array(items) => Ok(items),
+			_ => Err(KddError::KGetObjectsEmpty(entity_type.to_string())),
+		}
+	}
+}
