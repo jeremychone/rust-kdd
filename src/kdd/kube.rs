@@ -57,14 +57,14 @@ impl<'a> Kdd<'a> {
 	}
 
 	pub fn k_current_context(&self) -> Result<String, KddError> {
-		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "current-context"]) {
+		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "current-context"], false) {
 			Ok(name) => Ok(name.trim().to_string()),
 			Err(ex) => Err(KddError::KubectlFail(ex.to_string())),
 		}
 	}
 
 	pub fn k_set_context(&self, ctx: &str) -> Result<(), KddError> {
-		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "use-context", ctx]) {
+		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "use-context", ctx], false) {
 			Ok(_) => Ok(()),
 			Err(ex) => Err(KddError::FailSetRealm(ex.to_string())),
 		}

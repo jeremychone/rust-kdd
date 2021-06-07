@@ -1,4 +1,4 @@
-use clap::{crate_version, App, Arg, SubCommand};
+use clap::{crate_version, App, AppSettings, Arg, SubCommand};
 
 pub fn cmd_app() -> App<'static, 'static> {
 	App::new("kdd")
@@ -14,6 +14,7 @@ pub fn cmd_app() -> App<'static, 'static> {
 		.subcommand(sub_kaction("kcreate"))
 		.subcommand(sub_kaction("kdelete"))
 		.subcommand(sub_klog())
+		.subcommand(sub_kexec())
 }
 
 // region:    Subcommands
@@ -45,6 +46,23 @@ fn sub_realm() -> App<'static, 'static> {
 		.arg(arg_root_dir())
 }
 
+fn sub_kaction(action: &str) -> App<'static, 'static> {
+	// with format!(...)
+	let about = match action {
+		"kapply" => "Excute kubectl apply for one or more kubernetes configuration file",
+		"kcreate" => "Excute kubectl create for one or more kubernetes configuration file",
+		"kdelete" => "Excute kubectl delete for one or more kubernetes configuration file",
+		_ => "not supported",
+	};
+	SubCommand::with_name(action)
+		.about(about)
+		.arg(
+			Arg::with_name("names")
+				.help("Yaml file name or comma delimited names (no space, without path or extension, .e.g, web-server for k8s/dev/web-server.yaml"),
+		)
+		.arg(arg_root_dir())
+}
+
 fn sub_ktemplate() -> App<'static, 'static> {
 	SubCommand::with_name("ktemplate")
 		.about("Render the k8s yaml files for the current realm")
@@ -65,21 +83,21 @@ fn sub_klog() -> App<'static, 'static> {
 		.arg(arg_root_dir())
 }
 
-fn sub_kaction(action: &str) -> App<'static, 'static> {
-	// with format!(...)
-	let about = match action {
-		"kapply" => "Excute kubectl apply for one or more kubernetes configuration file",
-		"kcreate" => "Excute kubectl create for one or more kubernetes configuration file",
-		"kdelete" => "Excute kubectl delete for one or more kubernetes configuration file",
-		_ => "not supported",
-	};
-	SubCommand::with_name(action)
-		.about(about)
-		.arg(
-			Arg::with_name("names")
-				.help("Yaml file name or comma delimited names (no space, without path or extension, .e.g, web-server for k8s/dev/web-server.yaml"),
-		)
+fn sub_kexec() -> App<'static, 'static> {
+	SubCommand::with_name("kexec")
+		.about("Execute a kubectl exec for all pods matching service_name")
 		.arg(arg_root_dir())
+		.arg(
+			Arg::with_name("names").help("Service names that match the pod label run: system-_service_name_ (e.g., 'web-server' for label.run = cstar-web-server)"),
+		)
+		.arg(
+			Arg::with_name("bash")
+				.short("b")
+				.long("bash")
+				.takes_value(false)
+				.help("Execute the -- commands inside a /bin/bash -c '...' "),
+		)
+		.arg(Arg::with_name("pod_args").multiple(true))
 }
 
 // endregion: Subcommands

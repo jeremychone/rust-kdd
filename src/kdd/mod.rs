@@ -7,6 +7,7 @@ mod build;
 mod builder;
 mod docker;
 pub mod error;
+mod kexec;
 mod klog;
 mod ktemplate;
 mod kube;
@@ -99,9 +100,7 @@ impl<'a> Kdd<'a> {
 						service_name: service_name.to_owned(),
 					});
 				}
-				_ => {
-					// println!("->> UNKNOWN\n{}\n\n", to_string_pretty(pod).unwrap());
-				}
+				_ => {}
 			}
 		}
 		Ok(pods)
@@ -109,7 +108,7 @@ impl<'a> Kdd<'a> {
 
 	fn k_get_json_items(entity_type: &str) -> Result<Vec<Value>, KddError> {
 		let args = &["get", entity_type, "-o", "json"];
-		let json = exec_to_stdout(None, "kubectl", args)?;
+		let json = exec_to_stdout(None, "kubectl", args, false)?;
 		let mut json = serde_json::from_str::<Value>(&json)?;
 
 		match json["items"].take() {

@@ -35,6 +35,7 @@ pub fn cmd_run() -> Result<(), AppError> {
 		("kcreate", Some(sub_cmd)) => exec_kaction("create", root_dir, sub_cmd)?,
 		("kdelete", Some(sub_cmd)) => exec_kaction("delete", root_dir, sub_cmd)?,
 		("klog", Some(sub_cmd)) => exec_klog(root_dir, sub_cmd)?,
+		("kexec", Some(sub_cmd)) => exec_kexec(root_dir, sub_cmd)?,
 		_ => {
 			// needs cmd_app version as the orginal got consumed by get_matches
 			cmd_app().print_long_help()?;
@@ -132,6 +133,41 @@ fn exec_klog(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
 		kdd.k_log(realm, names)?;
 	} else {
 		println!("Cannot run kubectl log, no current realm");
+	}
+
+	Ok(())
+}
+
+fn exec_kexec(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
+	let kdd = load_kdd(root_dir)?;
+	let realm = kdd.current_realm()?;
+
+	if let Some(realm) = realm {
+		let names = split_names(argc.value_of("names"));
+		let names = names.as_ref().map(|v| &v[..]);
+
+		// the pod args (which might contain the cmd for the pod)
+		let pod_args = argc
+			.values_of("pod_args")
+			.map(|v| v.into_iter().map(|d| d.to_string()).collect::<Vec<String>>());
+
+		if let Some(pod_args) = pod_args {
+			// if -b, then, we add the /bin/bash -c, and the pod_args become one cmd component
+			let pod_args = if argc.is_present("bash") {
+				vec!["/bin/bash".to_string(), "-c".to_string(), pod_args.join(" ")]
+			} else {
+				pod_args
+			};
+
+			// make it Vec<&str>
+			let pod_args: Vec<&str> = pod_args.iter().map(|v| v as &str).collect();
+			// call the exec
+			kdd.k_exec(realm, names, &pod_args[..])?;
+		} else {
+			println!("Cannot run kubectl exec , no sub command. Use `kdd kexec -- /bin/bash -c 'ls'` for example");
+		}
+	} else {
+		println!("Cannot run kubectl exec, no current realm");
 	}
 
 	Ok(())

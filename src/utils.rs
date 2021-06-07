@@ -59,7 +59,10 @@ pub fn exec_cmd_args(cwd: Option<&PathBuf>, cmd: &str, args: &[&str]) -> Result<
 	}
 }
 
-pub fn exec_to_stdout(cwd: Option<&PathBuf>, cmd: &str, args: &[&str]) -> Result<String, UtilsError> {
+pub fn exec_to_stdout(cwd: Option<&PathBuf>, cmd: &str, args: &[&str], print_exec: bool) -> Result<String, UtilsError> {
+	if print_exec {
+		println!("> executing: {} {}", cmd, args.join(" "));
+	}
 	let mut proc = Command::new(&cmd);
 	if let Some(cwd) = cwd {
 		proc.current_dir(cwd);

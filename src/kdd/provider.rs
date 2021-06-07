@@ -77,7 +77,7 @@ impl Provider for AwsProvider {
 	fn docker_auth(&self, realm: &Realm) -> Result<(), KddError> {
 		if let Some(registry) = &realm.registry {
 			// get the password
-			let pwd = exec_to_stdout(None, "aws", &["ecr", "get-login-password", "--profile", &realm.profile()])?;
+			let pwd = exec_to_stdout(None, "aws", &["ecr", "get-login-password", "--profile", &realm.profile()], false)?;
 
 			// execute the login
 			let cmd = "docker";
@@ -101,7 +101,7 @@ impl AwsProvider {
 		let profile = realm.profile();
 
 		// aws ecr describe-repositories --profile jc-root
-		let json = exec_to_stdout(None, "aws", &["ecr", "describe-repositories", "--profile", &profile])?;
+		let json = exec_to_stdout(None, "aws", &["ecr", "describe-repositories", "--profile", &profile], false)?;
 		let json = serde_json::from_str::<Value>(&json)?;
 		if let Some(reps) = json["repositories"].as_array() {
 			for rep in reps {
