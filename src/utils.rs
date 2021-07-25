@@ -4,6 +4,7 @@ use std::{
 	process::{Command, ExitStatus, Stdio},
 };
 use thiserror::Error;
+use yaml_rust::Yaml;
 
 #[derive(Error, Debug)]
 pub enum UtilsError {
@@ -84,3 +85,15 @@ pub fn exec_to_stdout(cwd: Option<&PathBuf>, cmd: &str, args: &[&str], print_exe
 		}
 	}
 }
+
+// region:    Yaml Utils
+/// Check if the yaml has a given prop, and if does, just self as
+/// Some(Yaml) otherwise returns None
+pub fn has_prop<'a>(yaml: &'a Yaml, prop_name: &str) -> Option<&'a Yaml> {
+	if yaml[prop_name].is_badvalue() {
+		None
+	} else {
+		Some(yaml)
+	}
+}
+// endregion: Yaml Utils

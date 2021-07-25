@@ -24,7 +24,7 @@ impl<'a> Kdd<'a> {
 			create_dir_all(&out_dir)?;
 		}
 
-		//// built the realm/kdd merged vars
+		//// build the realm/kdd merged vars
 		let mut merged_vars = self.vars.clone();
 		for (name, val) in realm.vars.iter() {
 			merged_vars.insert(name.to_string(), val.to_string());
