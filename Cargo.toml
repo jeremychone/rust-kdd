@@ -1,6 +1,6 @@
 [package]
 name = "kdd"
-version = "0.1.0"
+version = "0.1.1-SNAPSHOT"
 authors = ["Jeremy Chone <jeremy.chone@gmail.com>"]
 edition = "2018"
 
@@ -27,6 +27,7 @@ license = "MIT"
 
 [dependencies]
 tokio = { version = "1.6", features = ["full"] }
+futures = "0.3"
 regex = "1"
 yaml-rust = "0.4"
 indexmap = "1.6"

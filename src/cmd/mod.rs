@@ -27,6 +27,7 @@ pub fn cmd_run() -> Result<(), AppError> {
 
 	match app.subcommand() {
 		("build", Some(sub_cmd)) => exec_build(root_dir, sub_cmd, false)?,
+		("watch", Some(sub_cmd)) => exec_watch(root_dir, sub_cmd)?,
 		("dbuild", Some(sub_cmd)) => exec_build(root_dir, sub_cmd, true)?,
 		("dpush", Some(sub_cmd)) => exec_dpush(root_dir, sub_cmd)?,
 		("realm", Some(sub_cmd)) => exec_realm(root_dir, sub_cmd)?,
@@ -54,6 +55,16 @@ fn exec_build(root_dir: &str, argc: &ArgMatches, docker_build: bool) -> Result<(
 	let blocks = blocks.as_ref().map(|v| &v[..]);
 
 	kdd.build(blocks, docker_build)?;
+
+	Ok(())
+}
+
+fn exec_watch(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
+	let kdd = load_kdd(root_dir)?;
+	let blocks = argc.value_of("blocks").map(|v| v.split(",").into_iter().collect::<Vec<&str>>());
+	let blocks = blocks.as_ref().map(|v| &v[..]);
+
+	kdd.watch(blocks)?;
 
 	Ok(())
 }

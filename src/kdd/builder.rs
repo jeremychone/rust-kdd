@@ -8,7 +8,8 @@ use crate::{
 	yutils::{as_string, as_strings},
 };
 use pathdiff::diff_paths;
-use std::{path::Path, process::Command};
+use std::path::Path;
+use tokio::process::{Child, Command};
 use yaml_rust::Yaml;
 
 //// Builder Struct
@@ -16,6 +17,7 @@ use yaml_rust::Yaml;
 pub struct Builder {
 	pub name: String,
 	pub when_file: Option<String>,
+	pub replace: Option<String>,
 	pub exec: Exec,
 }
 
@@ -36,6 +38,8 @@ impl Builder {
 
 			let when_file = as_string(yaml, "when_file");
 
+			let replace = as_string(yaml, "replace");
+
 			if when_file.is_none() {
 				println!(
 					"KDD PARSING WARNING - Processor {} does not have an .when_file property. Will never get triggered",
@@ -45,6 +49,7 @@ impl Builder {
 
 			Some(Builder {
 				name: name.to_owned(),
+				replace,
 				when_file,
 				exec,
 			})
@@ -55,13 +60,14 @@ impl Builder {
 }
 
 // region:    Exec Component
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Exec {
 	cmd: Cmd, // from base dir if not prefixed, if prefixed with ./ then block_dir is prefixed
 	args: Vec<String>,
+	watch_args: Option<Vec<String>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Cmd {
 	Global(String),   // global cmd, e.g., npm
 	Base(String),     // from kdd base dir, e.g., node_modules/.bin/tsc
@@ -83,14 +89,24 @@ impl Exec {
 		};
 
 		let args = as_strings(&y_exec, "args").unwrap_or_else(|| Vec::new());
-
-		Ok(Exec { cmd, args })
+		let watch_args = as_strings(&y_exec, "watch_args");
+		Ok(Exec { cmd, args, watch_args })
 	}
 }
 
 //// Exec Public Methods
 impl Exec {
-	pub fn execute(&self, kdd_dir: &Path, block_dir: &Path) {
+	pub async fn execute_and_wait(&self, kdd_dir: &Path, block_dir: &Path, watch: bool) -> Result<(), KddError> {
+		let mut proc = self.execute(kdd_dir, block_dir, watch)?;
+		// proc.wait()?
+
+		match proc.wait().await {
+			Ok(_) => Ok(()),
+			Err(ex) => Err(KddError::CannotExecute(ex.to_string())),
+		}
+	}
+
+	pub fn execute(&self, kdd_dir: &Path, block_dir: &Path, watch: bool) -> Result<Child, KddError> {
 		let cwd = block_dir;
 
 		let cmd = match &self.cmd {
@@ -107,26 +123,24 @@ impl Exec {
 			}
 		};
 
-		// proc
-		let args = &self.args[..];
+		// args
+		let args = match (watch, &self.watch_args) {
+			(true, Some(watch_args)) => &watch_args[..],
+			_ => &self.args[..],
+		};
+
+		// build proc
 		let mut proc = Command::new(&cmd);
 		proc.current_dir(&cwd);
 		proc.args(args);
 
+		// execute
 		println!("> executing: {} {} (at cwd: {})  ", cmd, args.join(" "), cwd.to_string_lossy(),);
-
-		let mut proc = match proc.spawn() {
-			Ok(proc) => proc,
+		match proc.spawn() {
+			Ok(proc) => Ok(proc),
 			Err(ex) => {
 				println!("  ERROR - Fail to execute. Cause: {}", ex);
-				return;
-			}
-		};
-
-		match proc.wait() {
-			Ok(_) => return,
-			Err(ex) => {
-				println!("  ERROR - Faild during execution. Cause: {}", ex);
+				Err(KddError::CannotExecute(ex.to_string()))
 			}
 		}
 	}

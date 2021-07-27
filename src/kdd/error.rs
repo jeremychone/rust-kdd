@@ -70,4 +70,7 @@ pub enum KddError {
 
 	#[error(transparent)]
 	JsonError(#[from] serde_json::Error),
+
+	#[error("Cannot execute builder - cause: {0} ")]
+	CannotExecute(String),
 }

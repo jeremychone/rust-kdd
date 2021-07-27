@@ -1,4 +1,4 @@
-use clap::{crate_version, App, AppSettings, Arg, SubCommand};
+use clap::{crate_version, App, Arg, SubCommand};
 
 pub fn cmd_app() -> App<'static, 'static> {
 	App::new("kdd")
@@ -6,6 +6,7 @@ pub fn cmd_app() -> App<'static, 'static> {
 		.about("Kubernetes Driven Development and Deployment")
 		.arg(arg_root_dir())
 		.subcommand(sub_build())
+		.subcommand(sub_watch())
 		.subcommand(sub_dbuild())
 		.subcommand(sub_dpush())
 		.subcommand(sub_realm())
@@ -21,6 +22,13 @@ pub fn cmd_app() -> App<'static, 'static> {
 fn sub_build() -> App<'static, 'static> {
 	SubCommand::with_name("build")
 		.about("Build one or more block")
+		.arg(Arg::with_name("blocks").help("Comma delimited block names (no space)"))
+		.arg(arg_root_dir())
+}
+
+fn sub_watch() -> App<'static, 'static> {
+	SubCommand::with_name("watch")
+		.about("Watch one or more block")
 		.arg(Arg::with_name("blocks").help("Comma delimited block names (no space)"))
 		.arg(arg_root_dir())
 }

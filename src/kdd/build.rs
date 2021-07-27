@@ -1,9 +1,13 @@
 use std::{
 	cell::RefCell,
 	collections::{HashMap, HashSet},
+	time::Duration,
 };
 
-use super::{error::KddError, Block, Kdd};
+use futures::future::join_all;
+use tokio::time::sleep;
+
+use super::{builder::Builder, error::KddError, Block, Kdd};
 
 impl<'a> Kdd<'a> {
 	pub fn blocks_for_names(&self, names: Option<&[&str]>, docker_block: bool) -> Result<(Vec<&Block>, HashMap<&str, &Block>), KddError> {
@@ -34,6 +38,52 @@ impl<'a> Kdd<'a> {
 		Ok((blocks_to_build, block_by_name))
 	}
 
+	fn builders_for_block(&self, block: &Block) -> Vec<&Builder> {
+		let mut block_builders: Vec<&Builder> = Vec::new();
+		let mut replace_names: HashSet<&str> = HashSet::new();
+		for builder in self.builders.iter() {
+			if let Some(when_file) = &builder.when_file {
+				let when_path = self.get_rel_path(block, when_file);
+				if when_path.is_file() {
+					block_builders.push(builder);
+					if let Some(replace) = &builder.replace {
+						replace_names.insert(replace);
+					}
+				}
+			}
+		}
+
+		let block_builders = block_builders.into_iter().filter(|b| !replace_names.contains(b.name.as_str())).collect();
+
+		block_builders
+	}
+
+	#[tokio::main(flavor = "current_thread")]
+	pub async fn watch(&self, names: Option<&[&str]>) -> Result<(), KddError> {
+		let (blocks_to_build, _) = self.blocks_for_names(names, false)?;
+
+		let mut handles = vec![];
+
+		for block in blocks_to_build.iter() {
+			for builder in self.builders_for_block(block).iter() {
+				let block_dir = self.get_block_dir(&block);
+				let kdd_dir = self.dir.clone();
+				let exec = builder.exec.clone();
+
+				handles.push(tokio::spawn(async move {
+					let _ = exec.execute_and_wait(kdd_dir.as_path(), block_dir.as_path(), true).await;
+				}));
+
+				// give some time for each builder to get started (better console readability)
+				sleep(Duration::from_secs(2)).await;
+			}
+		}
+
+		join_all(handles).await;
+
+		Ok(())
+	}
+
 	pub fn build(&self, names: Option<&[&str]>, docker_build: bool) -> Result<(), KddError> {
 		let (blocks_to_build, block_by_name) = self.blocks_for_names(names, docker_build)?;
 
@@ -43,23 +93,19 @@ impl<'a> Kdd<'a> {
 		// create the non mutable version
 		let blocks_to_build = blocks_to_build;
 
-		let build = |block: &Block| {
+		let build_block = |block: &Block| {
 			let block_dir = self.get_block_dir(&block);
 			let mut has_builder = false;
 
-			for builder in self.builders.iter() {
-				if let Some(when_file) = &builder.when_file {
-					let when_path = self.get_rel_path(block, when_file);
-					if when_path.is_file() {
-						if !has_builder {
-							has_builder = true;
-							println!("======  Executing Builders for '{}' ", block.name);
-						}
-						println!("--- builder - {} for [{}] - File {} found", builder.name, block.name, when_file);
-						builder.exec.execute(&self.dir, &block_dir);
-						println!();
-					}
+			for builder in self.builders_for_block(block).iter() {
+				if !has_builder {
+					has_builder = true;
+					println!("===  Executing Builders for '{}' ", block.name);
 				}
+				println!("--- builder - {} for [{}]", builder.name, block.name);
+				// ignore error
+				let _ = builder.exec.execute_and_wait(&self.dir, &block_dir, false);
+				println!();
 			}
 			blocks_built.borrow_mut().insert(block.name.to_string());
 			if has_builder {
@@ -77,7 +123,7 @@ impl<'a> Kdd<'a> {
 						match block_by_name.get(block_name.as_str()) {
 							Some(dep_block) => {
 								println!("======  Dependency '{}' for '{}' building... ", dep_block.name, block.name);
-								build(dep_block);
+								build_block(dep_block);
 								println!("====== /Dependency '{}' for '{}' DONE\n", dep_block.name, block.name);
 							}
 							None => {
@@ -87,7 +133,7 @@ impl<'a> Kdd<'a> {
 					}
 				}
 			}
-			build(block);
+			build_block(block);
 
 			if docker_build {
 				println!("======  Docker Build for '{}' ", block.name);
