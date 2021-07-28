@@ -11,9 +11,9 @@ pub fn cmd_app() -> App<'static, 'static> {
 		.subcommand(sub_dpush())
 		.subcommand(sub_realm())
 		.subcommand(sub_ktemplate())
-		.subcommand(sub_kaction("kapply"))
-		.subcommand(sub_kaction("kcreate"))
-		.subcommand(sub_kaction("kdelete"))
+		.subcommand(sub_kaction(("kapply", "ka")))
+		.subcommand(sub_kaction(("kcreate", "kc")))
+		.subcommand(sub_kaction(("kdelete", "kd")))
 		.subcommand(sub_klog())
 		.subcommand(sub_kexec())
 }
@@ -54,7 +54,8 @@ fn sub_realm() -> App<'static, 'static> {
 		.arg(arg_root_dir())
 }
 
-fn sub_kaction(action: &str) -> App<'static, 'static> {
+fn sub_kaction(action_n_alias: (&'static str, &'static str)) -> App<'static, 'static> {
+	let (action, alias) = action_n_alias;
 	// with format!(...)
 	let about = match action {
 		"kapply" => "Excute kubectl apply for one or more kubernetes configuration file",
@@ -64,6 +65,7 @@ fn sub_kaction(action: &str) -> App<'static, 'static> {
 	};
 	SubCommand::with_name(action)
 		.about(about)
+		.alias(alias)
 		.arg(
 			Arg::with_name("names")
 				.help("Yaml file name or comma delimited names (no space, without path or extension, .e.g, web-server for k8s/dev/web-server.yaml"),
@@ -84,6 +86,7 @@ fn sub_ktemplate() -> App<'static, 'static> {
 fn sub_klog() -> App<'static, 'static> {
 	SubCommand::with_name("klog")
 		.alias("klogs")
+		.alias("kl")
 		.about("Execute and display the kubectl log for one or more service (and all of their respective pods)")
 		.arg(
 			Arg::with_name("names").help("Service names that match the pod label run: system-_service_name_ (e.g., 'web-server' for label.run = cstar-web-server)"),
@@ -94,6 +97,7 @@ fn sub_klog() -> App<'static, 'static> {
 fn sub_kexec() -> App<'static, 'static> {
 	SubCommand::with_name("kexec")
 		.about("Execute a kubectl exec for all pods matching service_name")
+		.alias("kx")
 		.arg(arg_root_dir())
 		.arg(
 			Arg::with_name("names").help("Service names that match the pod label run: system-_service_name_ (e.g., 'web-server' for label.run = cstar-web-server)"),
