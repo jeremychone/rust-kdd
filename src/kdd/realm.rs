@@ -2,24 +2,22 @@
 // kdd::realm - All realm related actions
 ////
 
-use std::{
-	collections::{HashMap, HashSet},
-	fs::read_dir,
-	path::PathBuf,
-};
-
-use yaml_rust::Yaml;
-
-use crate::yutils::{as_bool, as_string, as_strings};
-
 use super::{
 	error::KddError,
 	provider::{AwsProvider, DesktopProvider, Provider, RealmProvider},
 	Kdd,
 };
+use crate::yutils::{as_bool, as_string, as_strings};
+use std::{
+	collections::{HashMap, HashSet},
+	fs::read_dir,
+	path::PathBuf,
+};
+use yaml_rust::Yaml;
 
 const REALM_KEY_YAML_DIR: &str = "yaml_dir";
 const REALM_KEY_CONTEXT: &str = "context";
+const REALM_CTX_DOCKER_DESKTOP: &str = "docker-desktop";
 const REALM_KEY_CONFIRM_DELETE: &str = "confirm_delete";
 const REALM_KEY_PROJECT: &str = "project"; // for GKE
 const REALM_KEY_REGISTRY: &str = "registry"; // must on AWS (inferred for gke and docker-dekstop)
@@ -44,7 +42,7 @@ pub struct Realm {
 //// Realm Public Methods
 impl Realm {
 	pub fn provider_from_ctx(ctx: &str) -> Result<RealmProvider, KddError> {
-		if ctx.contains("docker-desktop") {
+		if ctx.contains(REALM_CTX_DOCKER_DESKTOP) {
 			Ok(RealmProvider::Desktop(DesktopProvider))
 		} else if ctx.starts_with("arn:aws") {
 			Ok(RealmProvider::Aws(AwsProvider))
@@ -57,6 +55,13 @@ impl Realm {
 		match &self.provider {
 			RealmProvider::Aws(p) => p as &dyn Provider,
 			RealmProvider::Desktop(p) => p as &dyn Provider,
+		}
+	}
+
+	pub fn is_desktop(&self) -> bool {
+		match &self.provider {
+			RealmProvider::Desktop(_) => true,
+			_ => false,
 		}
 	}
 
@@ -122,7 +127,7 @@ impl Realm {
 //// Realm Builder(s)
 impl Realm {
 	pub fn from_yaml(kdd_dir: &PathBuf, name: &str, yaml: &Yaml) -> Result<Realm, KddError> {
-		let ctx = as_string(yaml, REALM_KEY_CONTEXT).unwrap_or("docker-desktop".to_string());
+		let ctx = as_string(yaml, REALM_KEY_CONTEXT).unwrap_or(REALM_CTX_DOCKER_DESKTOP.to_string());
 		let provider = Realm::provider_from_ctx(&ctx)?;
 
 		// NOTE: Must have at least one yaml_dir

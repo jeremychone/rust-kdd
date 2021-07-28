@@ -43,24 +43,38 @@ impl<'a> Kdd<'a> {
 		// make sure the tags exist
 		exec_cmd_args(Some(cwd), "docker", &["tag", local_image_uri, remote_image_uri])?;
 
-		match exec_cmd_args(Some(cwd), "docker", &["push", remote_image_uri]) {
-			Ok(_) => (),
-			Err(ex) => {
-				println!("Failed to do a docker push (cause: {}). Trying to recover...", ex);
-				realm.provider().docker_auth(realm)?;
+		match (realm.is_desktop(), exec_cmd_args(Some(cwd), "docker", &["push", remote_image_uri])) {
+			// push successful, just forward Ok(())
+			(_, Ok(_)) => {
+				println!("====== /Pushing image {} : {} - DONE\n", local_image_uri, remote_image_uri);
+				Ok(())
+			}
+			// if desktop realm and error, canot be recovered, forward error
+			(true, Err(ex)) => {
+				println!("Failed to do a docker push (cause: {})", ex);
+				Err(KddError::DpushFailed(ex.to_string()))
+			}
+			// if remote realm, then, try to recover one time
+			(false, Err(ex)) => {
+				println!("Failed to do a docker push (cause: {})", ex);
+				println!("Trying to recover...");
+				// authenticate, and ignore error for now (will fail later)
+				let _ = realm.provider().docker_auth(realm);
+				// try again
 				match exec_cmd_args(Some(cwd), "docker", &["push", remote_image_uri]) {
 					Ok(_) => {
 						println!("Recovered OK!");
+						println!("====== /Pushing image {} : {} - DONE\n", local_image_uri, remote_image_uri);
+						Ok(())
 					}
-					Err(ex) => return Err(KddError::DpushFailed(ex.to_string())),
+					Err(ex) => {
+						println!("Failed recover (cause: {})", ex);
+						println!("====== /Pushing image {} : {} - FAILED\n", local_image_uri, remote_image_uri);
+						Err(KddError::DpushFailed(ex.to_string()))
+					}
 				}
 			}
 		}
-
-		//
-		println!("====== /Pushing image {} : {} - DONE\n", local_image_uri, remote_image_uri);
-
-		Ok(())
 	}
 
 	fn image_uri(&self, block: &Block, realm: Option<&Realm>) -> String {

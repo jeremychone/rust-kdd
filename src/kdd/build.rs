@@ -87,6 +87,14 @@ impl<'a> Kdd<'a> {
 	pub fn build(&self, names: Option<&[&str]>, docker_build: bool) -> Result<(), KddError> {
 		let (blocks_to_build, block_by_name) = self.blocks_for_names(names, docker_build)?;
 
+		// we get the current realm to the automatic dpush when local (desktop)
+		let current_realm = &self.current_realm().ok().flatten();
+		// if realm desktop start with true (can be set to false later if fail at first time)
+		let mut push_to_local_registry = match current_realm {
+			Some(realm) => realm.is_desktop(),
+			_ => false,
+		};
+
 		// RefCell enough since single thread (need to put Arc/Mutex if async)
 		let blocks_built: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
 
@@ -137,10 +145,21 @@ impl<'a> Kdd<'a> {
 
 			if docker_build {
 				println!("======  Docker Build for '{}' ", block.name);
-
 				self.d_build_block(block)?;
-
 				println!("====== /Docker Build for '{}' DONE ", block.name);
+
+				if push_to_local_registry {
+					if let Some(realm) = current_realm {
+						match self.d_push(realm, Some(&[block.name.as_ref()])) {
+							Ok(_) => (),
+							Err(ex) => {
+								println!("WARNING dpush to local registry failed. Cause: {}", ex);
+								println!("Skip dpush to local registry from now on.");
+								push_to_local_registry = false;
+							}
+						}
+					}
+				}
 			}
 
 			println!("==================  /Block '{}' DONE  ==================", block.name);
