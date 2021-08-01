@@ -14,7 +14,7 @@ use crate::{
 	yutils::{as_string, merge_yaml},
 };
 
-use super::{error::KddError, Block, Builder, Kdd, Realm};
+use super::{error::KddError, version::Version, Block, Builder, Kdd, Realm};
 use serde_json::Value;
 
 const KDD_KEY_SYSTEM: &str = "system";
@@ -81,8 +81,11 @@ impl<'a> Kdd<'a> {
 		//// read the realms
 		let realms = parse_realms(&dir, &kdd_yaml["realms"]);
 
-		//// read the builder
+		//// read the builders
 		let builders = parse_builders(&kdd_yaml["builders"]);
+
+		//// read the versions
+		let versions = parser_versions(&kdd_yaml["versions"]);
 
 		// add all of the root variables as vars
 		if let Some(map) = kdd_yaml.as_hash() {
@@ -103,6 +106,7 @@ impl<'a> Kdd<'a> {
 			blocks,
 			realms,
 			builders,
+			versions,
 		};
 
 		Ok(kdd)
@@ -241,7 +245,18 @@ fn parse_builders(y_builders: &Yaml) -> Vec<Builder> {
 	let builders = y_builders
 		.as_vec()
 		.map(|y_builders| y_builders.iter().filter_map(|x| Builder::from_yaml(x)).collect::<Vec<Builder>>());
+
 	builders.unwrap_or_else(|| Vec::new())
 }
 
 // endregion: Builders Parser
+
+// region:    Version Parser
+fn parser_versions(y_versions: &Yaml) -> Vec<Version> {
+	let versions = y_versions
+		.as_vec()
+		.map(|y_versions| y_versions.iter().filter_map(|x| Version::from_yaml(x)).collect::<Vec<Version>>());
+
+	versions.unwrap_or_else(|| Vec::new())
+}
+// endregion: Version Parser

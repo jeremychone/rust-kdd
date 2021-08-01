@@ -37,6 +37,7 @@ pub fn cmd_run() -> Result<(), AppError> {
 		("kdelete", Some(sub_cmd)) => exec_kaction("delete", root_dir, sub_cmd)?,
 		("klog", Some(sub_cmd)) => exec_klog(root_dir, sub_cmd)?,
 		("kexec", Some(sub_cmd)) => exec_kexec(root_dir, sub_cmd)?,
+		("version", Some(sub_cmd)) => exec_version(root_dir, sub_cmd)?,
 		_ => {
 			// needs cmd_app version as the orginal got consumed by get_matches
 			cmd_app().print_long_help()?;
@@ -184,6 +185,13 @@ fn exec_kexec(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
 	Ok(())
 }
 
+fn exec_version(root_dir: &str, _: &ArgMatches) -> Result<(), AppError> {
+	let kdd = load_kdd(root_dir)?;
+
+	kdd.version()?;
+
+	Ok(())
+}
 // endregion: Command Execs
 
 // region:    Utils

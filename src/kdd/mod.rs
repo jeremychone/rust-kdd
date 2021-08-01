@@ -14,6 +14,7 @@ mod kube;
 mod loader;
 mod provider;
 mod realm;
+pub mod version;
 
 use handlebars::Handlebars;
 use std::{
@@ -23,7 +24,7 @@ use std::{
 
 use crate::utils::exec_to_stdout;
 
-use self::{block::Block, builder::Builder, error::KddError, realm::Realm};
+use self::{block::Block, builder::Builder, error::KddError, realm::Realm, version::Version};
 use indexmap::IndexMap;
 use serde_json::Value;
 
@@ -40,6 +41,7 @@ pub struct Kdd<'a> {
 	realms: IndexMap<String, Realm>,
 	blocks: Vec<Block>,
 	builders: Vec<Builder>,
+	versions: Vec<Version>,
 }
 
 #[derive(Debug)]

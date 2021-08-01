@@ -16,6 +16,7 @@ pub fn cmd_app() -> App<'static, 'static> {
 		.subcommand(sub_kaction(("kdelete", "kd")))
 		.subcommand(sub_klog())
 		.subcommand(sub_kexec())
+		.subcommand(sub_version())
 }
 
 // region:    Subcommands
@@ -110,6 +111,12 @@ fn sub_kexec() -> App<'static, 'static> {
 				.help("Execute the -- commands inside a /bin/bash -c '...' "),
 		)
 		.arg(Arg::with_name("pod_args").multiple(true))
+}
+
+fn sub_version() -> App<'static, 'static> {
+	SubCommand::with_name("version")
+		.about("Version files with the configured version replace commands")
+		.arg(arg_root_dir())
 }
 
 // endregion: Subcommands

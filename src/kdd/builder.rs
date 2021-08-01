@@ -21,7 +21,7 @@ pub struct Builder {
 	pub exec: Exec,
 }
 
-//// Builder Builder(s)
+//// Builder Maker
 impl Builder {
 	pub fn from_yaml(yaml: &Yaml) -> Option<Builder> {
 		if let Some(name) = yaml["name"].as_str() {
