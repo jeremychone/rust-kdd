@@ -4,7 +4,7 @@
 
 use yaml_rust::Yaml;
 
-use crate::yutils::{as_string, as_strings, as_yaml_map, remove_keys};
+use crate::utils::yamls::{as_string, as_strings, as_yaml_map, remove_keys};
 
 const BLOCK_KEY_NAME: &str = "name";
 const BLOCK_KEY_DIR: &str = "dir";

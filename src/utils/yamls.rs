@@ -69,6 +69,25 @@ pub fn as_string(yaml: &Yaml, key: &str) -> Option<String> {
 	yaml[key].as_str().map(|str| str.to_string())
 }
 
+/// serialiaze this yaml item (if string, bool, number) as string
+pub fn to_string(yaml: &Yaml) -> Option<String> {
+	if let Some(val) = yaml.as_str() {
+		return Some(val.to_string());
+	}
+
+	if let Some(val) = yaml.as_f64() {
+		return Some(val.to_string());
+	}
+
+	if let Some(val) = yaml.as_i64() {
+		return Some(val.to_string());
+	}
+	if let Some(val) = yaml.as_bool() {
+		return Some(val.to_string());
+	}
+	None
+}
+
 /// Returns a Some of vector of owned string
 pub fn as_strings(yaml: &Yaml, key: &str) -> Option<Vec<String>> {
 	let yaml = &yaml[key];
@@ -100,18 +119,12 @@ pub fn remove_keys(yaml: Yaml, keys: &[&str]) -> Yaml {
 	}
 }
 
-pub fn merge_yaml(base: &Yaml, over: &Yaml) -> Yaml {
-	match (base, over) {
-		(Yaml::Hash(base), Yaml::Hash(over)) => {
-			let mut data = over.clone();
-			for key in base.keys() {
-				if !data.contains_key(key) {
-					data.insert(key.clone(), base.get(key).unwrap().clone());
-				}
-			}
-			Yaml::Hash(data)
+//// Merge in place a extra yaml to a target
+pub fn merge_yaml(target: &mut Yaml, extra: &Yaml) {
+	if let (Yaml::Hash(target), Yaml::Hash(extra)) = (target, extra) {
+		for key in extra.keys() {
+			target.insert(key.clone(), extra.get(key).unwrap().clone());
 		}
-		_ => over.clone(),
 	}
 }
 

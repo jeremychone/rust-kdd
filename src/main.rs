@@ -4,7 +4,10 @@ mod app_error;
 mod cmd;
 mod kdd;
 mod utils;
-mod yutils;
+
+#[cfg(test)]
+#[path = "./_test/test_utils.rs"]
+mod test_utils;
 
 use crate::cmd::cmd_run;
 

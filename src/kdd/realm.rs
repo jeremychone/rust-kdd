@@ -7,7 +7,7 @@ use super::{
 	provider::{AwsProvider, DesktopProvider, Provider, RealmProvider},
 	Kdd,
 };
-use crate::yutils::{as_bool, as_string, as_strings};
+use crate::utils::yamls::{as_bool, as_string, as_strings, to_string};
 use std::{
 	collections::{HashMap, HashSet},
 	fs::read_dir,
@@ -30,13 +30,13 @@ pub struct Realm {
 	pub name: String,
 	pub confirm_delete: bool,
 	pub vars: HashMap<String, String>,
-	provider: RealmProvider,
-	yaml_dirs: Vec<PathBuf>,
-	context: Option<String>,
 	pub registry: Option<String>,
 	pub profile: Option<String>,
 	pub project: Option<String>,
 	pub default_configurations: Option<Vec<String>>,
+	provider: RealmProvider,
+	yaml_dirs: Vec<PathBuf>,
+	context: Option<String>,
 }
 
 //// Realm Public Methods
@@ -130,21 +130,32 @@ impl Realm {
 		let ctx = as_string(yaml, REALM_KEY_CONTEXT).unwrap_or(REALM_CTX_DOCKER_DESKTOP.to_string());
 		let provider = Realm::provider_from_ctx(&ctx)?;
 
-		// NOTE: Must have at least one yaml_dir
-		let yaml_dir = as_string(yaml, REALM_KEY_YAML_DIR).unwrap_or_else(|| format!("k8s/{}", name));
-		let yaml_dirs = vec![kdd_dir.join(yaml_dir)];
+		// get the string or strings values as an array of string
+		let yaml_dirs = as_string(yaml, REALM_KEY_YAML_DIR)
+			.map(|v| vec![format!("k8s/{}", v)])
+			.or_else(|| as_strings(yaml, REALM_KEY_YAML_DIR))
+			.unwrap_or_else(|| Vec::new());
+
+		// create the pathbuff
+		let yaml_dirs: Vec<PathBuf> = yaml_dirs.into_iter().map(|v| kdd_dir.join(v)).collect();
+
+		// extract the eventual confirm_delete and then delete it
+		let confirm_delete = as_bool(yaml, REALM_KEY_CONFIRM_DELETE).unwrap_or(true);
+
+		let mut exclude_vars = HashSet::new();
+		exclude_vars.insert(REALM_KEY_CONFIRM_DELETE);
 
 		let mut vars: HashMap<String, String> = HashMap::new();
 		// add all of the root variables as vars
 		if let Some(map) = yaml.as_hash() {
 			for (name, val) in map.iter() {
-				if let (Some(name), Some(val)) = (name.as_str(), val.as_str()) {
-					vars.insert(name.to_owned(), val.to_owned());
+				if let (Some(name), Some(val)) = (name.as_str(), to_string(val)) {
+					if !exclude_vars.contains(name) {
+						vars.insert(name.to_owned(), val);
+					}
 				}
 			}
 		}
-
-		let confirm_delete = as_bool(yaml, REALM_KEY_CONFIRM_DELETE).unwrap_or(true);
 
 		Ok(Realm {
 			name: name.to_string(),

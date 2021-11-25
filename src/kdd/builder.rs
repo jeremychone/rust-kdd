@@ -5,7 +5,7 @@
 use super::error::KddError;
 use crate::{
 	utils::path_to_string,
-	yutils::{as_string, as_strings},
+	utils::yamls::{as_string, as_strings},
 };
 use pathdiff::diff_paths;
 use std::path::Path;

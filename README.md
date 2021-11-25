@@ -12,6 +12,7 @@ Each system have one `kdd.yaml` file, with two main constructs:
 ## Install
 
 **From cargo (recommended for now):**
+
 ```sh 
 cargo install kdd
 ```

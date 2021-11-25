@@ -1,3 +1,5 @@
+pub mod yamls;
+
 use std::{
 	io::Error as IOError,
 	path::PathBuf,

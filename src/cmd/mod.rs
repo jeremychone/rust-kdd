@@ -188,7 +188,7 @@ fn exec_kexec(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
 fn exec_version(root_dir: &str, _: &ArgMatches) -> Result<(), AppError> {
 	let kdd = load_kdd(root_dir)?;
 
-	kdd.version()?;
+	kdd.version(&mut std::io::stdout())?;
 
 	Ok(())
 }

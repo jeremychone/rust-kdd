@@ -53,7 +53,10 @@ impl<'a> Kdd<'a> {
 			}
 		}
 
-		let block_builders = block_builders.into_iter().filter(|b| !replace_names.contains(b.name.as_str())).collect();
+		let block_builders = block_builders
+			.into_iter()
+			.filter(|b| !replace_names.contains(b.name.as_str()))
+			.collect();
 
 		block_builders
 	}
