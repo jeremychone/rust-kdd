@@ -99,7 +99,10 @@ impl Realm {
 					for path in paths {
 						if let Ok(path) = path {
 							let path = path.path();
-							if let (Some(stem), Some(ext)) = (path.file_stem().map(|v| v.to_str()).flatten(), path.extension().map(|v| v.to_str()).flatten()) {
+							if let (Some(stem), Some(ext)) = (
+								path.file_stem().map(|v| v.to_str()).flatten(),
+								path.extension().map(|v| v.to_str()).flatten(),
+							) {
 								if path.is_file() && ext.to_lowercase() == "yaml" && !stems_set.contains(stem) {
 									stems_set.insert(stem.to_string());
 									yaml_paths.push(path);
@@ -132,9 +135,13 @@ impl Realm {
 
 		// get the string or strings values as an array of string
 		let yaml_dirs = as_string(yaml, REALM_KEY_YAML_DIR)
-			.map(|v| vec![format!("k8s/{}", v)])
+			.map(|v| vec![v.to_string()])
 			.or_else(|| as_strings(yaml, REALM_KEY_YAML_DIR))
 			.unwrap_or_else(|| Vec::new());
+
+		if yaml_dirs.len() == 0 {
+			return Err(KddError::FailLoadNoK8sYamlDir(name.to_string()));
+		}
 
 		// create the pathbuff
 		let yaml_dirs: Vec<PathBuf> = yaml_dirs.into_iter().map(|v| kdd_dir.join(v)).collect();
@@ -175,7 +182,10 @@ impl Realm {
 //// Kdd Realm Methods
 impl<'a> Kdd<'a> {
 	pub fn realm_for_ctx(&self, ctx: &str) -> Option<&Realm> {
-		self.realms().into_iter().find(|v| v.context.as_deref().map(|vc| vc == ctx).unwrap_or(false))
+		self
+			.realms()
+			.into_iter()
+			.find(|v| v.context.as_deref().map(|vc| vc == ctx).unwrap_or(false))
 	}
 
 	pub fn current_realm(&self) -> Result<Option<&Realm>, KddError> {

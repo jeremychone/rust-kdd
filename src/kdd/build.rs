@@ -1,10 +1,6 @@
-use std::{
-	cell::RefCell,
-	collections::{HashMap, HashSet},
-	time::Duration,
-};
-
 use futures::future::join_all;
+use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 use tokio::time::sleep;
 
 use super::{builder::Builder, error::KddError, Block, Kdd};
@@ -87,7 +83,8 @@ impl<'a> Kdd<'a> {
 		Ok(())
 	}
 
-	pub fn build(&self, names: Option<&[&str]>, docker_build: bool) -> Result<(), KddError> {
+	#[tokio::main(flavor = "current_thread")]
+	pub async fn build(&self, names: Option<&[&str]>, docker_build: bool) -> Result<(), KddError> {
 		let (blocks_to_build, block_by_name) = self.blocks_for_names(names, docker_build)?;
 
 		// we get the current realm to the automatic dpush when local (desktop)
@@ -98,43 +95,48 @@ impl<'a> Kdd<'a> {
 			_ => false,
 		};
 
-		// RefCell enough since single thread (need to put Arc/Mutex if async)
-		let blocks_built: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
+		// blocks built
+		let mut blocks_built: HashSet<String> = HashSet::new();
 
 		// create the non mutable version
 		let blocks_to_build = blocks_to_build;
 
-		let build_block = |block: &Block| {
-			let block_dir = self.get_block_dir(&block);
+		async fn build_block<'a>(block: &Block, kdd: &Kdd<'a>, mut blocks_built: HashSet<String>) -> HashSet<String> {
+			let block_dir = kdd.get_block_dir(block);
 			let mut has_builder = false;
 
-			for builder in self.builders_for_block(block).iter() {
+			// run all the builders for this block
+			for builder in kdd.builders_for_block(block).iter() {
 				if !has_builder {
 					has_builder = true;
 					println!("===  Executing Builders for '{}' ", block.name);
 				}
 				println!("--- builder - {} for [{}]", builder.name, block.name);
-				// ignore error
-				let _ = builder.exec.execute_and_wait(&self.dir, &block_dir, false);
+				// ignore error, handled in the execute and wait
+				let _ = builder.exec.execute_and_wait(&kdd.dir, &block_dir, false).await;
 				println!();
 			}
-			blocks_built.borrow_mut().insert(block.name.to_string());
+
 			if has_builder {
-				println!("====== /Executing Builders for '{}' DONE", block.name);
+				println!("=== /Executing Builders for '{}' DONE", block.name);
 			}
-		};
+
+			// add it to the list
+			blocks_built.insert(block.name.to_string());
+			blocks_built
+		}
 
 		for block in blocks_to_build {
 			println!("==================   Block '{}' building... ==================", block.name);
 			if let Some(dependencies) = &block.dependencies {
 				for block_name in dependencies.iter() {
-					if blocks_built.borrow().contains(block_name) {
+					if blocks_built.contains(block_name) {
 						println!("Dependency {} already built, skipping", block_name);
 					} else {
 						match block_by_name.get(block_name.as_str()) {
 							Some(dep_block) => {
 								println!("======  Dependency '{}' for '{}' building... ", dep_block.name, block.name);
-								build_block(dep_block);
+								blocks_built = build_block(dep_block, &self, blocks_built).await;
 								println!("====== /Dependency '{}' for '{}' DONE\n", dep_block.name, block.name);
 							}
 							None => {
@@ -144,7 +146,8 @@ impl<'a> Kdd<'a> {
 					}
 				}
 			}
-			build_block(block);
+
+			blocks_built = build_block(block, &self, blocks_built).await;
 
 			if docker_build {
 				println!("======  Docker Build for '{}' ", block.name);

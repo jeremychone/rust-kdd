@@ -98,7 +98,6 @@ impl Exec {
 impl Exec {
 	pub async fn execute_and_wait(&self, kdd_dir: &Path, block_dir: &Path, watch: bool) -> Result<(), KddError> {
 		let mut proc = self.execute(kdd_dir, block_dir, watch)?;
-		// proc.wait()?
 
 		match proc.wait().await {
 			Ok(_) => Ok(()),

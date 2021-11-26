@@ -6,10 +6,13 @@ use crate::utils::UtilsError;
 #[derive(Error, Debug)]
 pub enum KddError {
 	#[error("No kdd.yaml file found at {0}")]
-	NoKdevFileFound(String),
+	NoKddFileFound(String),
 
 	#[error("kdd.yaml must have one and two document (for for vars and the other for the document itself)")]
-	KdevYamlInvalid,
+	KddYamlInvalid,
+
+	#[error("No .yaml_dir property for realm '{0}'")]
+	FailLoadNoK8sYamlDir(String),
 
 	#[error("kdd.yaml failed to parse. Cause: {0}")]
 	KdevFailToParseInvalid(String),

@@ -33,7 +33,7 @@ impl<'a> Kdd<'a> {
 		//// load main KddPart
 		let kdd_path = dir.join("kdd.yaml");
 		if !kdd_path.is_file() {
-			return Err(KddError::NoKdevFileFound(dir.to_string_lossy().to_string()));
+			return Err(KddError::NoKddFileFound(dir.to_string_lossy().to_string()));
 		}
 		let kdd_content = read_to_string(kdd_path)?;
 		let KddRawPart {
@@ -122,7 +122,7 @@ fn parse_kdd_raw_part(dir: &PathBuf, kdd_content: &str) -> Result<KddRawPart, Kd
 		2 => (splits[1].to_owned(), Some(splits[0])),
 		// otherwise, fail for now
 		_ => {
-			return Err(KddError::KdevYamlInvalid);
+			return Err(KddError::KddYamlInvalid);
 		}
 	};
 
@@ -354,7 +354,7 @@ fn parse_realms(kdd_dir: &PathBuf, y_realms: &Yaml, realm_root_base: &Option<Yam
 						Ok(realm) => {
 							realms.insert(name.to_string(), realm);
 						}
-						Err(ex) => println!("Faill to prase realm {}. Cause: {}", name, ex),
+						Err(ex) => println!("KDD ERROR - Fail to parse realm {}. Cause: {}", name, ex),
 					}
 				}
 			}

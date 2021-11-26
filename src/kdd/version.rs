@@ -6,11 +6,10 @@ use regex::Regex;
 use std::fs::{read_to_string, write};
 use yaml_rust::Yaml;
 
+use crate::app_error::AppError;
+use crate::utils::yamls::{as_string, as_strings};
+
 use super::Kdd;
-use crate::{
-	app_error::AppError,
-	utils::yamls::{as_string, as_strings},
-};
 
 //// Version Struct
 #[derive(Debug)]
@@ -70,15 +69,21 @@ impl<'a> Kdd<'a> {
 
 					match read_to_string(&full_path) {
 						Ok(content) => {
+							// extract original value
 							let org_val = val_rgx
 								.captures(&content)
 								.map(|caps| caps.get(caps.len() - 1).map(|m| m.as_str()))
 								.flatten();
+							// replace the content
 							let content = replace_rgx.replace_all(&content, by);
+
+							// extract the new value
 							let new_val = val_rgx
 								.captures(&content)
 								.map(|caps| caps.get(caps.len() - 1).map(|m| m.as_str()))
 								.flatten();
+
+							// write to the file
 							match write(&full_path, content.as_bytes()) {
 								Ok(_) => (),
 								Err(ex) => {
@@ -89,6 +94,7 @@ impl<'a> Kdd<'a> {
 									)?;
 								}
 							}
+							// write info
 							writeln!(
 								out,
 								"Updated version '{}' to '{}' in file {}",
