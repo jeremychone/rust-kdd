@@ -44,7 +44,12 @@ impl<'a> Kdd<'a> {
 
 				let out_content = match self.k_render_file(&src_content, &merged_vars) {
 					Ok(v) => v,
-					Err(ex) => return Err(KddError::KtemplateFailRender(src_file_rel_path.to_string_lossy().to_string(), ex.to_string())),
+					Err(ex) => {
+						return Err(KddError::KtemplateFailRender(
+							src_file_rel_path.to_string_lossy().to_string(),
+							ex.to_string(),
+						))
+					}
 				};
 
 				let out_path = out_dir.join(file_name);
@@ -53,7 +58,11 @@ impl<'a> Kdd<'a> {
 
 				let out_file_rel_path = diff_paths(&out_path, &self.dir).unwrap();
 				if print_full {
-					println!("{:<28}>>>  {}", src_file_rel_path.to_string_lossy(), out_file_rel_path.to_string_lossy());
+					println!(
+						"{:<28}>>>  {}",
+						src_file_rel_path.to_string_lossy(),
+						out_file_rel_path.to_string_lossy()
+					);
 				}
 				k8s_out_files.push(out_path);
 			}

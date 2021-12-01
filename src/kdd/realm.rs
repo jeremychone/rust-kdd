@@ -74,7 +74,7 @@ impl Realm {
 
 		// if we have a names above
 		if let Some(names) = names {
-			for name in names {
+			for name in names.iter() {
 				let mut yaml_dirs = self.yaml_dirs.iter();
 				loop {
 					match yaml_dirs.next() {
@@ -124,6 +124,15 @@ impl Realm {
 		// Note: There is always at least one yaml_dir, per parse_realm logic
 		let yaml_dir = &self.yaml_dirs[0];
 		yaml_dir.join(".out/").join(&self.name)
+	}
+
+	pub fn default_configurations(&self) -> Option<Vec<&str>> {
+		let names = self
+			.default_configurations
+			.as_ref()
+			.map(|v| v.iter().map(|v| v as &str).collect::<Vec<&str>>());
+
+		names
 	}
 }
 

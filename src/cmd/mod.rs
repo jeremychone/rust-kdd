@@ -31,7 +31,7 @@ pub fn cmd_run() -> Result<(), AppError> {
 		("dbuild", Some(sub_cmd)) => exec_build(root_dir, sub_cmd, true)?,
 		("dpush", Some(sub_cmd)) => exec_dpush(root_dir, sub_cmd)?,
 		("realm", Some(sub_cmd)) => exec_realm(root_dir, sub_cmd)?,
-		("ktemplate", Some(sub_cmd)) => exec_ktemplate(root_dir, sub_cmd)?,
+		("ktemplate", Some(sub_cmd)) => exec_kaction("template", root_dir, sub_cmd)?,
 		("kapply", Some(sub_cmd)) => exec_kaction("apply", root_dir, sub_cmd)?,
 		("kcreate", Some(sub_cmd)) => exec_kaction("create", root_dir, sub_cmd)?,
 		("kdelete", Some(sub_cmd)) => exec_kaction("delete", root_dir, sub_cmd)?,
@@ -99,32 +99,22 @@ fn exec_realm(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
 	Ok(())
 }
 
-fn exec_ktemplate(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
-	let kdd = load_kdd(root_dir)?;
-	let realm = kdd.current_realm()?;
-
-	let names = split_names(argc.value_of("names"));
-	let names = names.as_ref().map(|v| &v[..]);
-
-	if let Some(realm) = realm {
-		kdd.k_templates(realm, names, true)?;
-	} else {
-		println!("Cannot run ktemplate, no current realm");
-	}
-
-	Ok(())
-}
-
 fn exec_kaction(action: &str, root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
 	let kdd = load_kdd(root_dir)?;
 	let realm = kdd.current_realm()?;
 	let names = split_names(argc.value_of("names"));
 	let names = names.as_ref().map(|v| &v[..]);
+
 	if let Some(realm) = realm {
+		// if no names, get the names from the realm default_configurations if present
+		let config_names = realm.default_configurations();
+		let names = names.or_else(|| config_names.as_ref().map(|v| v.as_slice()));
+
 		match action {
 			"apply" => kdd.k_apply(realm, names)?,
 			"create" => kdd.k_create(realm, names)?,
 			"delete" => kdd.k_delete(realm, names)?,
+			"template" => kdd.k_templates(realm, names, true).map(|result| ())?,
 			_ => (),
 		}
 	} else {
