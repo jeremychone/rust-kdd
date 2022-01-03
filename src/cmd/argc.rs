@@ -1,6 +1,6 @@
-use clap::{crate_version, App, Arg, SubCommand};
+use clap::{crate_version, App, Arg};
 
-pub fn cmd_app() -> App<'static, 'static> {
+pub fn cmd_app() -> App<'static> {
 	App::new("kdd")
 		.version(&crate_version!()[..])
 		.about("Kubernetes Driven Development and Deployment")
@@ -20,42 +20,42 @@ pub fn cmd_app() -> App<'static, 'static> {
 }
 
 // region:    Subcommands
-fn sub_build() -> App<'static, 'static> {
-	SubCommand::with_name("build")
+fn sub_build() -> App<'static> {
+	App::new("build")
 		.about("Build one or more block")
-		.arg(Arg::with_name("blocks").help("Comma delimited block names (no space)"))
+		.arg(Arg::new("blocks").help("Comma delimited block names (no space)"))
 		.arg(arg_root_dir())
 }
 
-fn sub_watch() -> App<'static, 'static> {
-	SubCommand::with_name("watch")
+fn sub_watch() -> App<'static> {
+	App::new("watch")
 		.about("Watch one or more block")
-		.arg(Arg::with_name("blocks").help("Comma delimited block names (no space)"))
+		.arg(Arg::new("blocks").help("Comma delimited block names (no space)"))
 		.arg(arg_root_dir())
 }
 
-fn sub_dbuild() -> App<'static, 'static> {
-	SubCommand::with_name("dbuild")
+fn sub_dbuild() -> App<'static> {
+	App::new("dbuild")
 		.about("Build and docker build one or more block")
-		.arg(Arg::with_name("blocks").help("Comma delimited block names (no space)"))
+		.arg(Arg::new("blocks").help("Comma delimited block names (no space)"))
 		.arg(arg_root_dir())
 }
 
-fn sub_dpush() -> App<'static, 'static> {
-	SubCommand::with_name("dpush")
+fn sub_dpush() -> App<'static> {
+	App::new("dpush")
 		.about("Docker push one or more block to a realm")
-		.arg(Arg::with_name("blocks").help("Comma delimited block names (no space)"))
+		.arg(Arg::new("blocks").help("Comma delimited block names (no space)"))
 		.arg(arg_root_dir())
 }
 
-fn sub_realm() -> App<'static, 'static> {
-	SubCommand::with_name("realm")
+fn sub_realm() -> App<'static> {
+	App::new("realm")
 		.about("Show the available realms or set the current realm")
-		.arg(Arg::with_name("name").help("Realm name to change to"))
+		.arg(Arg::new("name").help("Realm name to change to"))
 		.arg(arg_root_dir())
 }
 
-fn sub_kaction(action_n_alias: (&'static str, &'static str)) -> App<'static, 'static> {
+fn sub_kaction(action_n_alias: (&'static str, &'static str)) -> App<'static> {
 	let (action, alias) = action_n_alias;
 	// with format!(...)
 	let about = match action {
@@ -64,57 +64,59 @@ fn sub_kaction(action_n_alias: (&'static str, &'static str)) -> App<'static, 'st
 		"kdelete" => "Excute kubectl delete for one or more kubernetes configuration file",
 		_ => "not supported",
 	};
-	SubCommand::with_name(action)
+	App::new(action)
 		.about(about)
 		.alias(alias)
 		.arg(
-			Arg::with_name("names")
+			Arg::new("names")
 				.help("Yaml file name or comma delimited names (no space, without path or extension, .e.g, web-server for k8s/dev/web-server.yaml"),
 		)
 		.arg(arg_root_dir())
 }
 
-fn sub_ktemplate() -> App<'static, 'static> {
-	SubCommand::with_name("ktemplate")
+fn sub_ktemplate() -> App<'static> {
+	App::new("ktemplate")
 		.about("Render the k8s yaml files for the current realm")
 		.arg(
-			Arg::with_name("names")
+			Arg::new("names")
 				.help("Yaml file name or comma delimited names (no space, without path or extension, .e.g, web-server for k8s/dev/web-server.yaml"),
 		)
 		.arg(arg_root_dir())
 }
 
-fn sub_klog() -> App<'static, 'static> {
-	SubCommand::with_name("klog")
+fn sub_klog() -> App<'static> {
+	App::new("klog")
 		.alias("klogs")
 		.alias("kl")
 		.about("Execute and display the kubectl log for one or more service (and all of their respective pods)")
 		.arg(
-			Arg::with_name("names").help("Service names that match the pod label run: system-_service_name_ (e.g., 'web-server' for label.run = cstar-web-server)"),
+			Arg::new("names")
+				.help("Service names that match the pod label run: system-_service_name_ (e.g., 'web-server' for label.run = cstar-web-server)"),
 		)
 		.arg(arg_root_dir())
 }
 
-fn sub_kexec() -> App<'static, 'static> {
-	SubCommand::with_name("kexec")
+fn sub_kexec() -> App<'static> {
+	App::new("kexec")
 		.about("Execute a kubectl exec for all pods matching service_name")
 		.alias("kx")
 		.arg(arg_root_dir())
 		.arg(
-			Arg::with_name("names").help("Service names that match the pod label run: system-_service_name_ (e.g., 'web-server' for label.run = cstar-web-server)"),
+			Arg::new("names")
+				.help("Service names that match the pod label run: system-_service_name_ (e.g., 'web-server' for label.run = cstar-web-server)"),
 		)
 		.arg(
-			Arg::with_name("bash")
-				.short("b")
+			Arg::new("bash")
+				.short('b')
 				.long("bash")
 				.takes_value(false)
 				.help("Execute the -- commands inside a /bin/bash -c '...' "),
 		)
-		.arg(Arg::with_name("pod_args").multiple(true))
+		.arg(Arg::new("pod_args").multiple_values(true))
 }
 
-fn sub_version() -> App<'static, 'static> {
-	SubCommand::with_name("version")
+fn sub_version() -> App<'static> {
+	App::new("version")
 		.about("Version files with the configured version replace commands")
 		.arg(arg_root_dir())
 }
@@ -122,9 +124,9 @@ fn sub_version() -> App<'static, 'static> {
 // endregion: Subcommands
 
 // region:    Common Args
-fn arg_root_dir() -> Arg<'static, 'static> {
-	Arg::with_name("root_dir")
-		.short("d")
+fn arg_root_dir() -> Arg<'static> {
+	Arg::new("root_dir")
+		.short('d')
 		.takes_value(true)
 		.help("The root dir where the driving kdd.yaml reside")
 }

@@ -17,7 +17,7 @@ pub fn cmd_run() -> Result<(), AppError> {
 	let root_dir = app
 		.value_of("root_dir")
 		.or_else(|| {
-			if let (_, Some(sub)) = &app.subcommand() {
+			if let Some((_, sub)) = &app.subcommand() {
 				sub.value_of("root_dir")
 			} else {
 				None
@@ -26,18 +26,18 @@ pub fn cmd_run() -> Result<(), AppError> {
 		.unwrap_or("./");
 
 	match app.subcommand() {
-		("build", Some(sub_cmd)) => exec_build(root_dir, sub_cmd, false)?,
-		("watch", Some(sub_cmd)) => exec_watch(root_dir, sub_cmd)?,
-		("dbuild", Some(sub_cmd)) => exec_build(root_dir, sub_cmd, true)?,
-		("dpush", Some(sub_cmd)) => exec_dpush(root_dir, sub_cmd)?,
-		("realm", Some(sub_cmd)) => exec_realm(root_dir, sub_cmd)?,
-		("ktemplate", Some(sub_cmd)) => exec_kaction("template", root_dir, sub_cmd)?,
-		("kapply", Some(sub_cmd)) => exec_kaction("apply", root_dir, sub_cmd)?,
-		("kcreate", Some(sub_cmd)) => exec_kaction("create", root_dir, sub_cmd)?,
-		("kdelete", Some(sub_cmd)) => exec_kaction("delete", root_dir, sub_cmd)?,
-		("klog", Some(sub_cmd)) => exec_klog(root_dir, sub_cmd)?,
-		("kexec", Some(sub_cmd)) => exec_kexec(root_dir, sub_cmd)?,
-		("version", Some(sub_cmd)) => exec_version(root_dir, sub_cmd)?,
+		Some(("build", sub_cmd)) => exec_build(root_dir, sub_cmd, false)?,
+		Some(("watch", sub_cmd)) => exec_watch(root_dir, sub_cmd)?,
+		Some(("dbuild", sub_cmd)) => exec_build(root_dir, sub_cmd, true)?,
+		Some(("dpush", sub_cmd)) => exec_dpush(root_dir, sub_cmd)?,
+		Some(("realm", sub_cmd)) => exec_realm(root_dir, sub_cmd)?,
+		Some(("ktemplate", sub_cmd)) => exec_kaction("template", root_dir, sub_cmd)?,
+		Some(("kapply", sub_cmd)) => exec_kaction("apply", root_dir, sub_cmd)?,
+		Some(("kcreate", sub_cmd)) => exec_kaction("create", root_dir, sub_cmd)?,
+		Some(("kdelete", sub_cmd)) => exec_kaction("delete", root_dir, sub_cmd)?,
+		Some(("klog", sub_cmd)) => exec_klog(root_dir, sub_cmd)?,
+		Some(("kexec", sub_cmd)) => exec_kexec(root_dir, sub_cmd)?,
+		Some(("version", sub_cmd)) => exec_version(root_dir, sub_cmd)?,
 		_ => {
 			// needs cmd_app version as the orginal got consumed by get_matches
 			cmd_app().print_long_help()?;
