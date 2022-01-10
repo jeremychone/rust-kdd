@@ -59,6 +59,9 @@ pub enum KddError {
 	#[error("Realm {0} has no kubernetes context (make sure this realm .context is set in the kdd.yaml)")]
 	RealmHasNoContext(String),
 
+	#[error("'aws ecr describe-repositories' failed cause: {0}")]
+	AwsEcrDescribeRepositoriesFailed(String),
+
 	#[error(transparent)]
 	UtilsError(#[from] UtilsError),
 

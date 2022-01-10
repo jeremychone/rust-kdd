@@ -102,7 +102,7 @@ impl AwsProvider {
 
 		// aws ecr describe-repositories --profile jc-root
 		let json = exec_to_stdout(None, "aws", &["ecr", "describe-repositories", "--profile", &profile], false)?;
-		let json = serde_json::from_str::<Value>(&json)?;
+		let json = serde_json::from_str::<Value>(&json).map_err(|ex| KddError::AwsEcrDescribeRepositoriesFailed(ex.to_string()))?;
 		if let Some(reps) = json["repositories"].as_array() {
 			for rep in reps {
 				if let Some(name) = rep["repositoryName"].as_str() {
