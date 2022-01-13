@@ -1,0 +1,22 @@
+# Some k8s yaml example
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+  namespace: default  
+type: Opaque
+data:
+  db_password: ZGV2X3B3ZF8xMjM=
+---  
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: default  
+data:
+  # database info
+  db_database: app_db
+  db_user: app_user
+  db_host: app-db-srv
+  # Other
+  app_version: '{{__version__}}'

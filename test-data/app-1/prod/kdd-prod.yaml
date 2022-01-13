@@ -1,0 +1,5 @@
+
+realms:
+  app-prod: 
+    prod_stuff: Some prod stuff
+    yaml_dir: ['prod/k8s-prod', 'k8s/dev']

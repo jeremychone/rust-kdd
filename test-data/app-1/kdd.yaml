@@ -1,0 +1,93 @@
+vars: 
+  - from_file: package.json
+    extract: ["__version__"]
+  - from_env: ["USER"]
+overlays: 
+  - prod/kdd-prod.yaml
+---
+system: cstar
+block_base_dir: services/ 
+
+realms:
+  _base_:  
+    ext_port: 8080
+    web_server_replicas: 2
+    
+  dev:
+    yaml_dir: k8s/dev/ # for dev, we override the yamlDir
+    context: docker-desktop
+    dev_stuff: Some dev stuff
+    confirm_delete: false
+    web_server_replicas: 4
+
+  aws:
+    yaml_dir: k8s/aws/
+    context: arn:aws:eks:us-west-2:843615417314:cluster/cstar-cluster
+    profile: jc-root
+    registry: 843615417314.dkr.ecr.us-west-2.amazonaws.com/
+    default_configurations: ['agent', 'db', 'queue', 'web-server']
+    confirm_delete: false
+
+  # jc-prod:
+  #   confirm_delete: true
+  #   context: gke_jc-prod_us-west1-b_jc-sites-cluster-a
+  #   project: jc-prod
+
+blocks: 
+  - db
+  - queue
+  - mock-s3
+  - agent2
+  - _common  
+  - name: vid-scaler
+    dependencies: _common    
+  - name: vid-init
+    dependencies: _common  
+  - name: agent
+    dependencies: _common
+  - name: web 
+    dir: frontends/web/
+  - name: web-server
+    dependencies: ['_common','web'] # build dependency for when running dbuild (no effect on build).
+  - name: admin
+    dir: frontends/admin/
+  - name: admin-server
+    dependencies: ['_common','admin'] # build dependency for when running dbuild (no effect on build). 
+
+builders: 
+  - name: npm_install
+    when_file: ./package.json
+    exec:
+      cmd: npm
+      cmd_type: global # base_dir | block_dir
+      args: ["install", "--color"]
+  - name: tsc
+    when_file: ./tsconfig.json
+    exec:
+      cmd: node_modules/.bin/tsc
+      watch_args: ["-w"]
+  - name: rollup
+    when_file: ./rollup.config.js
+    replace: tsc # rollup has rollup-ts, so no need to do it twice
+    exec:
+      cmd: node_modules/.bin/rollup
+      args: ["-c"]
+      watch_args: ["-c", "-w"]
+  - name: pcss
+    when_file: ./pcss.config.js
+    exec:
+      cmd: node_modules/.bin/pcss
+      watch_args: ["-w"]        
+
+versions:
+  - val: __version__\s*[=:]\s*["](.*)['"]
+    replace: (.*__version__\s*[=:]\s*["']).*(['"].*)
+    by: ${1}{{__version__}}${2}
+    in: 
+      - frontends/web/test-version.ts
+      - services/agent/test-version.ts
+  - val: <.*(?:href|src).*?v=(.*?)(?:"|\&)
+    replace: (<.*(?:href|src).*?v=).+?("|\&.*)
+    by: ${1}{{__version__}}${2}
+    in: 
+      - services/web-server/index.html
