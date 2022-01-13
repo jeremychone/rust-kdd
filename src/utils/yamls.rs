@@ -120,10 +120,13 @@ pub fn remove_keys(yaml: Yaml, keys: &[&str]) -> Yaml {
 }
 
 //// Merge in place a extra yaml to a target
-pub fn merge_yaml(target: &mut Yaml, extra: &Yaml) {
+pub fn merge_yaml(target: &mut Yaml, extra: &Yaml, overwrite: bool) {
 	if let (Yaml::Hash(target), Yaml::Hash(extra)) = (target, extra) {
 		for key in extra.keys() {
-			target.insert(key.clone(), extra.get(key).unwrap().clone());
+			// if overwrite is fals, update target only if it does not contain the key
+			if overwrite || !target.contains_key(key) {
+				target.insert(key.clone(), extra.get(key).unwrap().clone());
+			}
 		}
 	}
 }

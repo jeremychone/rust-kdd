@@ -327,6 +327,7 @@ fn parse_realms(kdd_dir: &PathBuf, y_realms: &Yaml, realm_root_base: &Option<Yam
 	match y_realms.as_hash() {
 		None => (None, IndexMap::new()),
 		Some(y_realms) => {
+			// load the eventual _base_ properties
 			let base = y_realms.get(&Yaml::String("_base_".to_string())).map(|y| y.to_owned());
 
 			let mut realms: IndexMap<String, Realm> = IndexMap::new();
@@ -342,12 +343,12 @@ fn parse_realms(kdd_dir: &PathBuf, y_realms: &Yaml, realm_root_base: &Option<Yam
 
 					//// merge the realm_root_base if present
 					if let Some(realm_root_base) = realm_root_base {
-						merge_yaml(&mut data, realm_root_base);
+						merge_yaml(&mut data, realm_root_base, true);
 					}
 
 					//// merge the data from _base_ and this realm
 					if let Some(base) = base.as_ref() {
-						merge_yaml(&mut data, &base);
+						merge_yaml(&mut data, &base, false); // do not override data
 					}
 
 					match Realm::from_yaml(kdd_dir, name, &data) {

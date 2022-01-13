@@ -40,11 +40,16 @@ fn loader_structure() -> Result<(), Box<dyn Error>> {
 fn loader_dev_realm() -> Result<(), Box<dyn Error>> {
 	let kdd = load_kdd()?;
 
-	//// Check dev realm
+	// CHECK - dev realm
 	let realm = &kdd.realms["dev"];
 	let vars = &realm.vars;
+	// normal dev realm property
 	assert_eq!(Some("Some dev stuff"), get_str(vars, "dev_stuff"), "dev_stuff realm var");
+	// property inherited from _base_
 	assert_eq!(Some("8080"), get_str(vars, "ext_port"), "ext_port realm var");
+	// property overriden by dev
+	assert_eq!(Some("4"), get_str(vars, "web_server_replicas"), "ext_port realm var");
+
 	assert_eq!(false, realm.confirm_delete);
 
 	Ok(())
