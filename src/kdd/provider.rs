@@ -38,12 +38,16 @@ pub trait Provider {
 pub struct AwsProvider;
 
 #[derive(Debug)]
-pub struct DesktopProvider;
+pub struct GcpProvider;
+
+#[derive(Debug)]
+pub struct CommonProvider;
 
 #[derive(Debug, Display)]
 pub enum RealmProvider {
 	Aws(AwsProvider),
-	Desktop(DesktopProvider),
+	Gcp(GcpProvider),
+	Common(CommonProvider),
 }
 
 impl Debug for dyn Provider {
@@ -116,6 +120,10 @@ impl AwsProvider {
 }
 // endregion: Aws Provider
 
-// region:    Desktop Provider
-impl Provider for DesktopProvider {}
-// endregion: Desktop Provider
+// region:    Gcp Provider
+impl Provider for GcpProvider {}
+// endregion: Gcp Provider
+
+// region:    Common Provider
+impl Provider for CommonProvider {}
+// endregion: Common Provider

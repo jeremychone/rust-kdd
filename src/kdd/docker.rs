@@ -43,13 +43,16 @@ impl<'a> Kdd<'a> {
 		// make sure the tags exist
 		exec_cmd_args(Some(cwd), "docker", &["tag", local_image_uri, remote_image_uri])?;
 
-		match (realm.is_desktop(), exec_cmd_args(Some(cwd), "docker", &["push", remote_image_uri])) {
+		match (
+			realm.is_local_registry(),
+			exec_cmd_args(Some(cwd), "docker", &["push", remote_image_uri]),
+		) {
 			// push successful, just forward Ok(())
 			(_, Ok(_)) => {
 				println!("====== /Pushing image {} : {} - DONE\n", local_image_uri, remote_image_uri);
 				Ok(())
 			}
-			// if desktop realm and error, canot be recovered, forward error
+			// if local registry realm and error, canot be recovered, forward error
 			(true, Err(ex)) => {
 				println!("Failed to do a docker push (cause: {})", ex);
 				Err(KddError::DpushFailed(ex.to_string()))

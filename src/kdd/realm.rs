@@ -4,7 +4,7 @@
 
 use super::{
 	error::KddError,
-	provider::{AwsProvider, DesktopProvider, Provider, RealmProvider},
+	provider::{AwsProvider, CommonProvider, GcpProvider, Provider, RealmProvider},
 	Kdd,
 };
 use crate::utils::yamls::{as_bool, as_string, as_strings, to_string};
@@ -17,7 +17,6 @@ use yaml_rust::Yaml;
 
 const REALM_KEY_YAML_DIR: &str = "yaml_dir";
 const REALM_KEY_CONTEXT: &str = "context";
-const REALM_CTX_DOCKER_DESKTOP: &str = "docker-desktop";
 const REALM_KEY_CONFIRM_DELETE: &str = "confirm_delete";
 const REALM_KEY_PROJECT: &str = "project"; // for GKE
 const REALM_KEY_REGISTRY: &str = "registry"; // must on AWS (inferred for gke and docker-dekstop)
@@ -42,27 +41,30 @@ pub struct Realm {
 //// Realm Public Methods
 impl Realm {
 	pub fn provider_from_ctx(ctx: &str) -> Result<RealmProvider, KddError> {
-		if ctx.contains(REALM_CTX_DOCKER_DESKTOP) {
-			Ok(RealmProvider::Desktop(DesktopProvider))
-		} else if ctx.starts_with("arn:aws") {
+		if ctx.starts_with("arn:aws") {
 			Ok(RealmProvider::Aws(AwsProvider))
+		} else if ctx.starts_with("gke") {
+			Ok(RealmProvider::Gcp(GcpProvider))
 		} else {
-			Err(KddError::ContextNotSupported(ctx.to_string()))
+			Ok(RealmProvider::Common(CommonProvider))
 		}
 	}
 
 	pub fn provider(&self) -> &dyn Provider {
 		match &self.provider {
 			RealmProvider::Aws(p) => p as &dyn Provider,
-			RealmProvider::Desktop(p) => p as &dyn Provider,
+			RealmProvider::Gcp(p) => p as &dyn Provider,
+			RealmProvider::Common(p) => p as &dyn Provider,
 		}
 	}
 
-	pub fn is_desktop(&self) -> bool {
-		match &self.provider {
-			RealmProvider::Desktop(_) => true,
-			_ => false,
-		}
+	pub fn is_local_registry(&self) -> bool {
+		// return true if no registry or registry is localhost or 127.0.0.1
+		self
+			.registry
+			.as_ref()
+			.map(|registry| registry.contains("localhost") || registry.contains("127.0.0.1"))
+			.unwrap_or(true)
 	}
 
 	pub fn profile(&self) -> String {
@@ -139,7 +141,7 @@ impl Realm {
 //// Realm Builder(s)
 impl Realm {
 	pub fn from_yaml(kdd_dir: &PathBuf, name: &str, yaml: &Yaml) -> Result<Realm, KddError> {
-		let ctx = as_string(yaml, REALM_KEY_CONTEXT).unwrap_or(REALM_CTX_DOCKER_DESKTOP.to_string());
+		let ctx = as_string(yaml, REALM_KEY_CONTEXT).ok_or_else(|| KddError::MissingRealmContext(name.to_string()))?;
 		let provider = Realm::provider_from_ctx(&ctx)?;
 
 		// get the string or strings values as an array of string

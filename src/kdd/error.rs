@@ -23,6 +23,9 @@ pub enum KddError {
 	#[error("Fail to set the realm {0}")]
 	FailSetRealm(String),
 
+	#[error("Missing 'context' property for realm '{0}'")]
+	MissingRealmContext(String),
+
 	#[error("Block {0} unknown. Build aborted")]
 	BlockUnknown(String),
 

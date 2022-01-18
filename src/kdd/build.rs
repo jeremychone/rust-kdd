@@ -91,7 +91,7 @@ impl<'a> Kdd<'a> {
 		let current_realm = &self.current_realm().ok().flatten();
 		// if realm desktop start with true (can be set to false later if fail at first time)
 		let mut push_to_local_registry = match current_realm {
-			Some(realm) => realm.is_desktop(),
+			Some(realm) => realm.is_local_registry(),
 			_ => false,
 		};
 
