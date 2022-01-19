@@ -1,6 +1,6 @@
 [package]
 name = "kdd"
-version = "0.1.5-SNAPSHOT.1"
+version = "0.1.5"
 authors = ["Jeremy Chone <jeremy.chone@gmail.com>"]
 edition = "2021"
 include = [
@@ -24,12 +24,12 @@ license = "MIT"
 
 
 [dependencies]
-tokio = { version = "1.6", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 regex = "1"
 yaml-rust = "0.4"
-indexmap = "1.6"
-serde_json = "1.0"
+indexmap = "1"
+serde_json = "1"
 clap =  {version = "3", features = ["cargo"]}
 thiserror = "1"
 handlebars = "4"
