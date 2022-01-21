@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::utils::exec_to_stdout;
+use crate::utils::{exec_cmd_args, exec_to_stdout};
 
 use super::{error::KddError, realm::Realm, Kdd, Pod};
 
@@ -25,8 +25,7 @@ fn kexec_pods(pods: &Vec<Pod>, pod_args: &[&str]) -> Result<(), KddError> {
 		let mut args: Vec<&str> = vec!["exec", &pod.name, "--"];
 		args.extend_from_slice(pod_args);
 
-		let out = exec_to_stdout(None, "kubectl", &args, true)?;
-		println!("{}", out);
+		exec_cmd_args(None, "kubectl", &args)?;
 	}
 
 	Ok(())
