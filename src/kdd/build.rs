@@ -3,6 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::time::sleep;
 
+use crate::kdd::builder::RunOccurrence;
+
 use super::{builder::Builder, error::KddError, Block, Kdd};
 
 impl<'a> Kdd<'a> {
@@ -89,6 +91,7 @@ impl<'a> Kdd<'a> {
 
 		// we get the current realm to the automatic dpush when local (desktop)
 		let current_realm = &self.current_realm().ok().flatten();
+
 		// if realm desktop start with true (can be set to false later if fail at first time)
 		let mut push_to_local_registry = match current_realm {
 			Some(realm) => realm.is_local_registry(),
@@ -98,22 +101,36 @@ impl<'a> Kdd<'a> {
 		// blocks built
 		let mut blocks_built: HashSet<String> = HashSet::new();
 
+		// for the builder `run: session`
+		let mut builders_executed: HashSet<String> = HashSet::new();
+
 		// create the non mutable version
 		let blocks_to_build = blocks_to_build;
 
-		async fn build_block<'a>(block: &Block, kdd: &Kdd<'a>, mut blocks_built: HashSet<String>) -> HashSet<String> {
+		async fn build_block<'a>(
+			block: &Block,
+			kdd: &Kdd<'a>,
+			mut blocks_built: HashSet<String>,
+			mut builders_executed: HashSet<String>,
+		) -> (HashSet<String>, HashSet<String>) {
 			let block_dir = kdd.get_block_dir(block);
-			let mut has_builder = false;
+
+			let builders = kdd.builders_for_block(block);
+			let has_builder = builders.len() > 0;
 
 			// run all the builders for this block
-			for builder in kdd.builders_for_block(block).iter() {
-				if !has_builder {
-					has_builder = true;
+			for (idx, builder) in builders.iter().enumerate() {
+				if builder.run == RunOccurrence::Session && builders_executed.contains(&builder.name) {
+					println!("- skipping builder '{}' (session builder already ran)", builder.name);
+					continue;
+				}
+				if idx == 0 {
 					println!("===  Executing Builders for '{}' ", block.name);
 				}
 				println!("--- builder - {} for [{}]", builder.name, block.name);
 				// ignore error, handled in the execute and wait
 				let _ = builder.exec.execute_and_wait(&kdd.dir, &block_dir, false).await;
+				builders_executed.insert(builder.name.to_string());
 				println!();
 			}
 
@@ -123,7 +140,7 @@ impl<'a> Kdd<'a> {
 
 			// add it to the list
 			blocks_built.insert(block.name.to_string());
-			blocks_built
+			(blocks_built, builders_executed)
 		}
 
 		for block in blocks_to_build {
@@ -136,7 +153,7 @@ impl<'a> Kdd<'a> {
 						match block_by_name.get(block_name.as_str()) {
 							Some(dep_block) => {
 								println!("======  Dependency '{}' for '{}' building... ", dep_block.name, block.name);
-								blocks_built = build_block(dep_block, &self, blocks_built).await;
+								(blocks_built, builders_executed) = build_block(dep_block, &self, blocks_built, builders_executed).await;
 								println!("====== /Dependency '{}' for '{}' DONE\n", dep_block.name, block.name);
 							}
 							None => {
@@ -147,7 +164,7 @@ impl<'a> Kdd<'a> {
 				}
 			}
 
-			blocks_built = build_block(block, &self, blocks_built).await;
+			(blocks_built, builders_executed) = build_block(block, &self, blocks_built, builders_executed).await;
 
 			if docker_build {
 				println!("======  Docker Build for '{}' ", block.name);

@@ -5,7 +5,7 @@
 use super::error::KddError;
 use crate::{
 	utils::path_to_string,
-	utils::yamls::{as_string, as_strings},
+	utils::yamls::{as_str, as_string, as_strings},
 };
 use pathdiff::diff_paths;
 use std::path::Path;
@@ -17,8 +17,16 @@ use yaml_rust::Yaml;
 pub struct Builder {
 	pub name: String,
 	pub when_file: Option<String>,
+	/// Define if this should be ran once per session or per block
+	pub run: RunOccurrence,
 	pub replace: Option<String>,
 	pub exec: Exec,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum RunOccurrence {
+	Block, // default
+	Session,
 }
 
 //// Builder Maker
@@ -47,8 +55,21 @@ impl Builder {
 				);
 			}
 
+			// -- extract the run (RunOccurence)
+			let run = match as_str(yaml, "run") {
+				None | Some("block") => RunOccurrence::Block,
+				Some("session") => RunOccurrence::Session,
+				Some(other) => {
+					let error = KddError::InvalidBuilder(name.to_string(), "'run' can only be 'block' or 'session'.".to_string());
+					println!("KDD ERROR PARSING KDD YAML. {:?}", error);
+					return None;
+					// TODO - this method should probably return Result
+				}
+			};
+
 			Some(Builder {
 				name: name.to_owned(),
+				run,
 				replace,
 				when_file,
 				exec,
@@ -62,9 +83,22 @@ impl Builder {
 // region:    Exec Component
 #[derive(Debug, Clone)]
 pub struct Exec {
-	cmd: Cmd, // from base dir if not prefixed, if prefixed with ./ then block_dir is prefixed
+	/// Define where the executable (global, relative to base, or relative to block)
+	/// Note - It is auto defined from the cmd string format (see enum Cmd for example)
+	cmd: Cmd,
+
+	/// From where the cmd should be called. By default, from the block dir
+	/// Can be set in the builder with the 'cwd
+	cwd: Cwd,
+
 	args: Vec<String>,
 	watch_args: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone)]
+enum Cwd {
+	Block, // default
+	Base,
 }
 
 #[derive(Debug, Clone)]
@@ -74,11 +108,21 @@ enum Cmd {
 	Relative(String), // local to entity (e.g., block) e.g. ./module/.bin/
 }
 
+impl Cmd {
+	fn name(&self) -> &str {
+		match self {
+			Cmd::Global(val) => val,
+			Cmd::Base(val) => val,
+			Cmd::Relative(val) => val,
+		}
+	}
+}
+
 //// Exec Builder(s)
 impl Exec {
 	pub fn from_yaml(y_exec: &Yaml) -> Result<Self, KddError> {
+		// -- extract the cmd
 		let cmd_name = as_string(&y_exec, "cmd").ok_or_else(|| KddError::NoExecCmd)?;
-
 		let cmd = if cmd_name.starts_with("./") {
 			Cmd::Relative(cmd_name) // relative to entity (.e.g., block.dir)
 		} else if cmd_name.contains("/") {
@@ -88,9 +132,26 @@ impl Exec {
 			Cmd::Global(cmd_name)
 		};
 
+		// -- extract the cwd
+		let cwd = match as_str(&y_exec, "cwd") {
+			None | Some("block_dir") => Cwd::Block,
+			Some("base_dir") => Cwd::Base,
+			Some(other) => {
+				return Err(KddError::InvalidBuilderExec(
+					cmd.name().to_string(),
+					"'cwd' can only be 'block_dir' or 'base_dir'.".to_string(),
+				))
+			}
+		};
+
 		let args = as_strings(&y_exec, "args").unwrap_or_else(|| Vec::new());
 		let watch_args = as_strings(&y_exec, "watch_args");
-		Ok(Exec { cmd, args, watch_args })
+		Ok(Exec {
+			cmd,
+			cwd,
+			args,
+			watch_args,
+		})
 	}
 }
 
@@ -106,8 +167,11 @@ impl Exec {
 	}
 
 	pub fn execute(&self, kdd_dir: &Path, block_dir: &Path, watch: bool) -> Result<Child, KddError> {
-		let cwd = block_dir;
-
+		let cwd = match self.cwd {
+			Cwd::Block => block_dir,
+			Cwd::Base => kdd_dir,
+		};
+		println!("->> KDD EXECUTE {:?} at {cwd:?}", self.cmd);
 		let cmd = match &self.cmd {
 			// e.g., npm
 			Cmd::Global(val) => val.to_string(),

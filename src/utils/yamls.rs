@@ -69,6 +69,10 @@ pub fn as_string(yaml: &Yaml, key: &str) -> Option<String> {
 	yaml[key].as_str().map(|str| str.to_string())
 }
 
+pub fn as_str<'a, 'b>(yaml: &'a Yaml, key: &'b str) -> Option<&'a str> {
+	yaml[key].as_str()
+}
+
 /// serialiaze this yaml item (if string, bool, number) as string
 pub fn to_string(yaml: &Yaml) -> Option<String> {
 	if let Some(val) = yaml.as_str() {

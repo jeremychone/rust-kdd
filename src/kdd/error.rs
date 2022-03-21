@@ -11,6 +11,12 @@ pub enum KddError {
 	#[error("kdd.yaml must have one and two document (for for vars and the other for the document itself)")]
 	KddYamlInvalid,
 
+	#[error("Invalid builder '{0}'. {1}")]
+	InvalidBuilder(String, String),
+
+	#[error("Invalid builder exec '{0}'. {1} ")]
+	InvalidBuilderExec(String, String),
+
 	#[error("No .yaml_dir property for realm '{0}'")]
 	FailLoadNoK8sYamlDir(String),
 
