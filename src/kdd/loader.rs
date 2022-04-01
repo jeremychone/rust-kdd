@@ -310,10 +310,13 @@ fn load_overlays(dir: &PathBuf, pre_yamls: &Vec<Yaml>) -> Vec<String> {
 		if let Some(files) = as_strings(pre_yaml, "overlays") {
 			for file in files {
 				if let Ok(content) = read_to_string(dir.join(&file)) {
+					println!("KDD INFO - overlay file {} loaded", file);
 					overlays.push(content);
-				} else {
-					println!("KDD INFO - overlay file {} not found, skipping", file);
 				}
+			}
+			// empty line
+			if overlays.len() > 0 {
+				println!();
 			}
 		}
 	}
