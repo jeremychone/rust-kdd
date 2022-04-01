@@ -1,5 +1,7 @@
 
 realms:
   app-prod: 
-    prod_stuff: Some prod stuff
+    app_prod_stuff: Some prod stuff
+    context: docker-desktop
     yaml_dir: ['prod/k8s-prod', 'k8s/dev']
+    some_specific_stuff: hello

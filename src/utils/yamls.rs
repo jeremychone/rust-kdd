@@ -60,6 +60,19 @@ pub fn as_yaml_map(yaml: Yaml) -> Option<Yaml> {
 	None
 }
 
+/// pretty print of a Yaml hash (if value stringable)
+pub fn print_yaml(yaml: &Yaml) {
+	if let Yaml::Hash(hash) = yaml {
+		for (name, value) in hash.iter() {
+			println!(
+				"- {}: {} ",
+				to_string(name).unwrap_or_default(),
+				to_string(value).unwrap_or_default()
+			);
+		}
+	}
+}
+
 pub fn as_bool(yaml: &Yaml, key: &str) -> Option<bool> {
 	yaml[key].as_bool()
 }
@@ -127,8 +140,8 @@ pub fn remove_keys(yaml: Yaml, keys: &[&str]) -> Yaml {
 pub fn merge_yaml(target: &mut Yaml, extra: &Yaml, overwrite: bool) {
 	if let (Yaml::Hash(target), Yaml::Hash(extra)) = (target, extra) {
 		for key in extra.keys() {
-			// if overwrite is fals, update target only if it does not contain the key
-			if overwrite || !target.contains_key(key) {
+			// if overwrite is false, update target only if it does not contain the key
+			if !overwrite || overwrite && !target.contains_key(key) {
 				target.insert(key.clone(), extra.get(key).unwrap().clone());
 			}
 		}

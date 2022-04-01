@@ -12,13 +12,16 @@ realms:
   _base_:  
     ext_port: 8080
     web_server_replicas: 2
+    app_prod_stuff: from kdd.yaml (to be overriden by prod/kdd-prod)
+    base_stuff: some stuff
+    base_stuff_2: some other stuff 2
     
-  dev:
-    yaml_dir: k8s/dev/ # for dev, we override the yamlDir
-    context: docker-desktop
-    dev_stuff: Some dev stuff
-    confirm_delete: false
-    web_server_replicas: 4
+  # dev:
+  #   yaml_dir: k8s/dev/ # for dev, we override the yamlDir
+  #   context: docker-desktop
+  #   dev_stuff: Some dev stuff
+  #   confirm_delete: false
+  #   web_server_replicas: 4
 
   aws:
     yaml_dir: k8s/aws/

@@ -20,3 +20,5 @@ data:
   db_host: app-db-srv
   # Other
   app_version: '{{__version__}}'
+  # stuff
+  app_prod_stuff: '{{app_prod_stuff}}'

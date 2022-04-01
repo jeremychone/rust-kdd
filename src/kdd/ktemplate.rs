@@ -1,6 +1,6 @@
-////////////////////////////////////
+////////////////////////////////
 // kdd::kube - impls for all kubenetes relative actions
-////
+// --
 
 use std::{
 	collections::HashMap,
@@ -24,21 +24,21 @@ impl<'a> Kdd<'a> {
 			create_dir_all(&out_dir)?;
 		}
 
-		//// build the realm/kdd merged vars
+		// -- take the kdd vars and merge the realm var on top of it
 		let mut merged_vars = self.vars.clone();
 		for (name, val) in realm.vars.iter() {
 			merged_vars.insert(name.to_string(), val.to_string());
 		}
 		let merged_vars = merged_vars;
 
-		//// render the files
+		// -- render the files
 		if print_full {
 			println!("---  Rendering yaml files");
 		}
 
 		for src_file in k8s_files {
 			if let Some(file_name) = src_file.file_name().map(|v| v.to_str()).flatten() {
-				//// render the content
+				// -- render the content
 				let src_file_rel_path = diff_paths(&src_file, &self.dir).unwrap();
 				let src_content = read_to_string(&src_file)?;
 

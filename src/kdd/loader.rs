@@ -1,18 +1,15 @@
-////////////////////////////////////
+//
 // kdd::loader - Responsible to load and instantiate a kdd
-////
-
-use std::{collections::HashMap, env, fs::read_to_string, path::PathBuf};
+// --
 
 use super::{error::KddError, version::Version, Block, Builder, Kdd, Realm};
-use crate::{
-	utils::yamls::{as_string, as_strings, merge_yaml},
-	utils::{has_prop, path_to_string},
-};
+use crate::utils::yamls::{as_string, as_strings, merge_yaml, print_yaml};
+use crate::utils::{has_prop, path_to_string};
 use handlebars::Handlebars;
 use indexmap::IndexMap;
 use regex::Regex;
 use serde_json::Value;
+use std::{collections::HashMap, env, fs::read_to_string, path::PathBuf};
 use yaml_rust::{Yaml, YamlLoader};
 
 const KDD_KEY_SYSTEM: &str = "system";
@@ -22,15 +19,15 @@ const KDD_KEY_IMAGE_TAG: &str = "image_tag";
 // Kdev Builder
 impl<'a> Kdd<'a> {
 	pub fn from_dir(dir: PathBuf) -> Result<Kdd<'a>, KddError> {
-		//// build the template engine
+		// -- build the template engine
 		let hbs: Handlebars = Handlebars::new();
 
-		//// base vars
-		let mut vars: HashMap<String, String> = HashMap::new();
-		vars.insert("dir".to_owned(), path_to_string(&dir)?);
-		vars.insert("dir_abs".to_owned(), path_to_string(&dir.canonicalize()?)?);
+		// -- root vars
+		let mut root_vars: HashMap<String, String> = HashMap::new();
+		root_vars.insert("dir".to_owned(), path_to_string(&dir)?);
+		root_vars.insert("dir_abs".to_owned(), path_to_string(&dir.canonicalize()?)?);
 
-		//// load main KddPart
+		// -- load main KddPart
 		let kdd_path = dir.join("kdd.yaml");
 		if !kdd_path.is_file() {
 			return Err(KddError::NoKddFileFound(dir.to_string_lossy().to_string()));
@@ -41,8 +38,11 @@ impl<'a> Kdd<'a> {
 			vars: extra_vars,
 			overlays,
 		} = parse_kdd_raw_part(&dir, &kdd_content)?;
-		merge_vars(&mut vars, extra_vars);
-		let kdd_part = parse_kdd_part(&dir, &kdd_yaml_txt, &mut vars, &hbs, &None)?;
+
+		// add to root vars
+		merge_vars(&mut root_vars, extra_vars);
+
+		let kdd_part = parse_kdd_part(&dir, &kdd_yaml_txt, &mut root_vars, &hbs, &None)?;
 
 		let KddPart {
 			kdd_yaml,
@@ -57,9 +57,9 @@ impl<'a> Kdd<'a> {
 
 		// extract system variable and set as var
 		let system = system.ok_or(KddError::NoSystem)?;
-		vars.insert("system".to_owned(), system.to_string());
+		root_vars.insert("system".to_owned(), system.to_string());
 
-		//// merge the overlay
+		// -- merge the overlay
 		for overlay_yaml_txt in overlays.into_iter() {
 			let KddRawPart {
 				kdd_yaml_txt: overlay_kdd_yaml_txt,
@@ -67,10 +67,10 @@ impl<'a> Kdd<'a> {
 				..
 			} = parse_kdd_raw_part(&dir, &overlay_yaml_txt)?;
 
-			merge_vars(&mut vars, extra_vars);
+			merge_vars(&mut root_vars, extra_vars);
 
 			// parse the overlay kdd yaml
-			let overlay_kdd_part = parse_kdd_part(&dir, &overlay_kdd_yaml_txt, &mut vars, &hbs, &realm_base)?;
+			let overlay_kdd_part = parse_kdd_part(&dir, &overlay_kdd_yaml_txt, &mut root_vars, &hbs, &realm_base)?;
 
 			// overlay the new realms
 			let KddPart {
@@ -81,10 +81,10 @@ impl<'a> Kdd<'a> {
 			}
 		}
 
-		//// build final kdd
+		// -- build final kdd
 		let kdd = Kdd {
 			hbs,
-			vars,
+			vars: root_vars,
 			dir,
 			system,
 			// both has to come from first kdd_yaml
@@ -164,12 +164,12 @@ struct KddPart {
 fn parse_kdd_part(
 	dir: &PathBuf,
 	kdd_yaml_txt: &str,
-	vars: &mut HashMap<String, String>,
+	root_vars: &mut HashMap<String, String>,
 	hbs: &Handlebars,
 	realm_root_base: &Option<Yaml>,
 ) -> Result<KddPart, KddError> {
 	// handlebars process the kdd yaml text
-	let rendered_yaml = match hbs.render_template(&kdd_yaml_txt, &vars) {
+	let rendered_yaml = match hbs.render_template(&kdd_yaml_txt, &root_vars) {
 		Ok(r) => r,
 		Err(e) => return Err(KddError::KdevFailToParseInvalid(e.to_string())),
 	};
@@ -177,26 +177,26 @@ fn parse_kdd_part(
 
 	let kdd_yaml = kdd_yaml.remove(0);
 
-	//// load the base properties
+	// -- load the base properties
 	let system = as_string(&kdd_yaml, KDD_KEY_SYSTEM);
 
-	//// read the blocks
+	// -- read the blocks
 	let blocks = parse_blocks(&kdd_yaml["blocks"]);
 
-	//// read the realms
+	// -- read the realms
 	let (realm_base, realms) = parse_realms(dir, &kdd_yaml["realms"], realm_root_base);
 
-	//// read the builders
+	// -- read the builders
 	let builders = parse_builders(&kdd_yaml["builders"]);
 
-	//// read the versions
+	// -- read the versions
 	let versions = parser_versions(&kdd_yaml["versions"]);
 
 	// add all of the root variables as vars
 	if let Some(map) = kdd_yaml.as_hash() {
 		for (name, val) in map.iter() {
 			if let (Some(name), Some(val)) = (name.as_str(), val.as_str()) {
-				vars.insert(name.to_owned(), val.to_owned());
+				root_vars.insert(name.to_owned(), val.to_owned());
 			}
 		}
 	}
@@ -323,7 +323,7 @@ fn load_overlays(dir: &PathBuf, pre_yamls: &Vec<Yaml>) -> Vec<String> {
 // endregion: Load Overlays
 
 // region:    Realms Parser
-fn parse_realms(kdd_dir: &PathBuf, y_realms: &Yaml, realm_root_base: &Option<Yaml>) -> (Option<Yaml>, IndexMap<String, Realm>) {
+fn parse_realms(kdd_dir: &PathBuf, y_realms: &Yaml, realms_base_vars: &Option<Yaml>) -> (Option<Yaml>, IndexMap<String, Realm>) {
 	match y_realms.as_hash() {
 		None => (None, IndexMap::new()),
 		Some(y_realms) => {
@@ -341,14 +341,17 @@ fn parse_realms(kdd_dir: &PathBuf, y_realms: &Yaml, realm_root_base: &Option<Yam
 
 					let mut data = data.clone();
 
-					//// merge the realm_root_base if present
-					if let Some(realm_root_base) = realm_root_base {
-						merge_yaml(&mut data, realm_root_base, true);
+					// -- merge the realms_base_vars if present
+					//    Note: This usually means it was the realms._base_ was already loaded in the main kdd.yaml parse
+					//    and this is a sub kdd file
+					if let Some(realms_base_vars) = realms_base_vars {
+						merge_yaml(&mut data, realms_base_vars, true);
 					}
 
-					//// merge the data from _base_ and this realm
+					// -- merge the data from _base_ and this realm
+					//    Note: This usually means the realm is in the main kdd and this is merged
 					if let Some(base) = base.as_ref() {
-						merge_yaml(&mut data, &base, false); // do not override data
+						merge_yaml(&mut data, &base, true);
 					}
 
 					match Realm::from_yaml(kdd_dir, name, &data) {

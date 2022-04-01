@@ -171,7 +171,6 @@ impl Exec {
 			Cwd::Block => block_dir,
 			Cwd::Base => kdd_dir,
 		};
-		println!("->> KDD EXECUTE {:?} at {cwd:?}", self.cmd);
 		let cmd = match &self.cmd {
 			// e.g., npm
 			Cmd::Global(val) => val.to_string(),
