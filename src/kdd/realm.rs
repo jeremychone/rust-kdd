@@ -191,7 +191,7 @@ impl Realm {
 }
 
 //// Kdd Realm Methods
-impl<'a> Kdd<'a> {
+impl Kdd {
 	pub fn realm_for_ctx(&self, ctx: &str) -> Option<&Realm> {
 		self
 			.realms()

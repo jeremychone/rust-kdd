@@ -128,8 +128,8 @@ fn exec_klog(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
 	let kdd = load_kdd(root_dir)?;
 	let realm = kdd.current_realm()?;
 
-	let names = split_names(argc.value_of("names"));
-	let names = names.as_ref().map(|v| &v[..]);
+	let names: Option<Vec<&str>> = split_names(argc.value_of("names"));
+	let names = names.map(|v| v.into_iter().map(|s| s.to_owned()).collect());
 
 	if let Some(realm) = realm {
 		kdd.k_log(realm, names)?;
@@ -191,7 +191,7 @@ fn split_names(val: Option<&str>) -> Option<Vec<&str>> {
 	val.map(|v| v.split(",").into_iter().collect::<Vec<&str>>())
 }
 
-fn load_kdd<'a>(root_dir: &str) -> Result<Kdd<'a>, AppError> {
+fn load_kdd(root_dir: &str) -> Result<Kdd, AppError> {
 	let dir = Path::new(root_dir).to_path_buf();
 	Ok(Kdd::from_dir(dir)?)
 }

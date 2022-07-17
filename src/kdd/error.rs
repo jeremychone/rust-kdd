@@ -53,8 +53,11 @@ pub enum KddError {
 	#[error("Fail to render k8s file '{0}' cause: {1}")]
 	KtemplateFailRender(String, String),
 
-	#[error("No exec.cmd fround")]
+	#[error("No exec.cmd found")]
 	NoExecCmd,
+
+	#[error("Fail exec proc, Cause: {0}")]
+	FailExecProc(String),
 
 	#[error("ERROR - Fail to execute. Cause: {0}")]
 	FailDockerBuilder(String),

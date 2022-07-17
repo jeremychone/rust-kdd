@@ -9,12 +9,12 @@ use std::{
 	path::PathBuf,
 };
 
-use handlebars::RenderError;
+use handlebars::{Handlebars, RenderError};
 use pathdiff::diff_paths;
 
 use super::{error::KddError, realm::Realm, Kdd};
 
-impl<'a> Kdd<'a> {
+impl Kdd {
 	pub fn k_templates(&self, realm: &Realm, names: Option<&[&str]>, print_full: bool) -> Result<Vec<PathBuf>, KddError> {
 		let k8s_files = realm.k8s_files(names);
 		let mut k8s_out_files: Vec<PathBuf> = Vec::new();
@@ -35,6 +35,7 @@ impl<'a> Kdd<'a> {
 		if print_full {
 			println!("---  Rendering yaml files");
 		}
+		let hbs: Handlebars = Handlebars::new();
 
 		for src_file in k8s_files {
 			if let Some(file_name) = src_file.file_name().map(|v| v.to_str()).flatten() {
@@ -42,7 +43,7 @@ impl<'a> Kdd<'a> {
 				let src_file_rel_path = diff_paths(&src_file, &self.dir).unwrap();
 				let src_content = read_to_string(&src_file)?;
 
-				let out_content = match self.k_render_file(&src_content, &merged_vars) {
+				let out_content = match self.k_render_file(&hbs, &src_content, &merged_vars) {
 					Ok(v) => v,
 					Err(ex) => {
 						return Err(KddError::KtemplateFailRender(
@@ -76,7 +77,7 @@ impl<'a> Kdd<'a> {
 		Ok(k8s_out_files)
 	}
 
-	fn k_render_file(&self, src_content: &str, vars: &HashMap<String, String>) -> Result<String, RenderError> {
-		self.hbs.render_template(src_content, vars)
+	fn k_render_file(&self, hbs: &Handlebars<'_>, src_content: &str, vars: &HashMap<String, String>) -> Result<String, RenderError> {
+		hbs.render_template(src_content, vars)
 	}
 }

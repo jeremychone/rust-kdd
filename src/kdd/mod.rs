@@ -7,16 +7,18 @@ mod build;
 mod builder;
 mod docker;
 pub mod error;
+mod kctl;
+mod kevents;
 mod kexec;
 mod klog;
 mod ktemplate;
-mod kube;
 mod loader;
 mod provider;
 mod realm;
 pub mod version;
 
 use handlebars::Handlebars;
+use std::collections::HashSet;
 use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
@@ -29,8 +31,8 @@ use indexmap::IndexMap;
 use serde_json::Value;
 
 #[derive(Debug)]
-pub struct Kdd<'a> {
-	hbs: Handlebars<'a>,
+pub struct KddConfig {
+	// hbs: Handlebars,
 	vars: HashMap<String, String>,
 
 	dir: PathBuf,
@@ -45,14 +47,56 @@ pub struct Kdd<'a> {
 }
 
 #[derive(Debug)]
+pub struct Kdd {
+	// hbs: Handlebars,
+	vars: HashMap<String, String>,
+
+	dir: PathBuf,
+	system: String,
+	block_base_dir: Option<String>,
+	image_tag: Option<String>,
+
+	realms: IndexMap<String, Realm>,
+	blocks: Vec<Block>,
+	builders: Vec<Builder>,
+	versions: Vec<Version>,
+
+	pods_provider: PodsProvider,
+}
+
+#[derive(Debug)]
 pub struct Pod {
 	pub name: String,
 	pub service_name: String,
 }
 
-//// Kdev element info implementations
-impl<'a> Kdd<'a> {
-	/// Returns the director path of this block dir (relative to cwd)
+impl From<KddConfig> for Kdd {
+	fn from(config: KddConfig) -> Self {
+		let pods_provider = PodsProvider {
+			system: config.system.clone(),
+		};
+
+		Kdd {
+			vars: config.vars,
+
+			dir: config.dir,
+			system: config.system,
+			block_base_dir: config.block_base_dir,
+			image_tag: config.image_tag,
+
+			realms: config.realms,
+			blocks: config.blocks,
+			builders: config.builders,
+			versions: config.versions,
+
+			pods_provider,
+		}
+	}
+}
+
+/// Kdd basic methods
+impl Kdd {
+	/// Returns the directory path of this block dir (relative to cwd)
 	pub fn get_block_dir(&self, block: &Block) -> PathBuf {
 		let path = match &block.dir {
 			Some(path) => Path::new(path).to_path_buf(),
@@ -88,9 +132,44 @@ impl<'a> Kdd<'a> {
 	}
 }
 
-//// Kdev Kubectl Queries
-impl<'a> Kdd<'a> {
-	fn k_list_pods(&self) -> Result<Vec<Pod>, KddError> {
+// region:    --- PodsProvider
+
+impl Kdd {
+	pub fn get_pods_by_service_names(&self, service_names: &Option<Vec<String>>) -> Result<Vec<Pod>, KddError> {
+		self.pods_provider.get_pods_by_service_names(service_names)
+	}
+
+	pub fn get_pods_provider(&self) -> PodsProvider {
+		self.pods_provider.clone()
+	}
+}
+
+#[derive(Clone, Debug)]
+pub struct PodsProvider {
+	system: String,
+}
+
+impl PodsProvider {
+	pub fn get_pods_by_service_names(&self, service_names: &Option<Vec<String>>) -> Result<Vec<Pod>, KddError> {
+		// get all the pods
+		let mut pods = Kdd::k_list_pods()?;
+
+		// filter the names
+		if let Some(names) = service_names {
+			let names_set: HashSet<String> = names.iter().map(|v| format!("{}-{}", self.system, v)).collect();
+			// TODO - The contains() is too broad here. If we have `cstar-cmd` pod `cstar-cmd-rs` will amach as well.
+			//        Not a critical issue, but should be fixed
+			pods = pods.into_iter().filter(|pod| names_set.contains(&pod.service_name)).collect();
+		}
+
+		Ok(pods)
+	}
+}
+// endregion: --- PodsProvider
+
+/// Static Kubectl Queries
+impl Kdd {
+	fn k_list_pods() -> Result<Vec<Pod>, KddError> {
 		let json_pods = Self::k_get_json_items("pod")?;
 		let mut pods: Vec<Pod> = Vec::new();
 

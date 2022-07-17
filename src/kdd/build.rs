@@ -7,7 +7,7 @@ use crate::kdd::builder::RunOccurrence;
 
 use super::{builder::Builder, error::KddError, Block, Kdd};
 
-impl<'a> Kdd<'a> {
+impl Kdd {
 	pub fn blocks_for_names(&self, names: Option<&[&str]>, docker_block: bool) -> Result<(Vec<&Block>, HashMap<&str, &Block>), KddError> {
 		let block_by_name: HashMap<&str, &Block> = self.blocks.iter().map(|b| (b.name.as_str(), b)).collect();
 
@@ -107,9 +107,9 @@ impl<'a> Kdd<'a> {
 		// create the non mutable version
 		let blocks_to_build = blocks_to_build;
 
-		async fn build_block<'a>(
+		async fn build_block(
 			block: &Block,
-			kdd: &Kdd<'a>,
+			kdd: &Kdd,
 			mut blocks_built: HashSet<String>,
 			mut builders_executed: HashSet<String>,
 		) -> (HashSet<String>, HashSet<String>) {

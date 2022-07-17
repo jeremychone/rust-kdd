@@ -4,9 +4,9 @@ use crate::utils::{exec_cmd_args, exec_to_stdout};
 
 use super::{error::KddError, realm::Realm, Kdd, Pod};
 
-impl<'a> Kdd<'a> {
+impl Kdd {
 	pub fn k_exec(&self, _realm: &Realm, names: Option<&[&str]>, pod_args: &[&str]) -> Result<(), KddError> {
-		let mut pods = self.k_list_pods()?;
+		let mut pods = Self::k_list_pods()?;
 
 		//// filter by names names
 		if let Some(names) = names {

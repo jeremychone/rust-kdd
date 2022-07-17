@@ -35,7 +35,7 @@ impl Version {
 	}
 }
 
-impl<'a> Kdd<'a> {
+impl Kdd {
 	pub fn version(&self, out: &mut impl std::io::Write) -> Result<(), AppError> {
 		writeln!(out, "========  Versions")?;
 		if self.versions.len() > 0 {

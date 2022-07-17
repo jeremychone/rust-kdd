@@ -4,7 +4,7 @@ use crate::kdd::{error::KddError, Kdd};
 
 const APP_1_DIR: &str = "./test-data/app-1";
 
-pub fn load_kdd() -> Result<Kdd<'static>, KddError> {
+pub fn load_kdd() -> Result<Kdd, KddError> {
 	let root_dir = Path::new(APP_1_DIR).to_path_buf();
 	Kdd::from_dir(root_dir)
 }

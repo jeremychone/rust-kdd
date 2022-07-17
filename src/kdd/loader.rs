@@ -2,6 +2,7 @@
 // kdd::loader - Responsible to load and instantiate a kdd
 // --
 
+use super::KddConfig;
 use super::{error::KddError, version::Version, Block, Builder, Kdd, Realm};
 use crate::utils::yamls::{as_string, as_strings, merge_yaml, print_yaml};
 use crate::utils::{has_prop, path_to_string};
@@ -17,8 +18,8 @@ const KDD_KEY_BLOCK_DIR: &str = "block_base_dir";
 const KDD_KEY_IMAGE_TAG: &str = "image_tag";
 
 // Kdev Builder
-impl<'a> Kdd<'a> {
-	pub fn from_dir(dir: PathBuf) -> Result<Kdd<'a>, KddError> {
+impl Kdd {
+	pub fn from_dir(dir: PathBuf) -> Result<Kdd, KddError> {
 		// -- build the template engine
 		let hbs: Handlebars = Handlebars::new();
 
@@ -82,8 +83,7 @@ impl<'a> Kdd<'a> {
 		}
 
 		// -- build final kdd
-		let kdd = Kdd {
-			hbs,
+		let kdd_config = KddConfig {
 			vars: root_vars,
 			dir,
 			system,
@@ -96,7 +96,7 @@ impl<'a> Kdd<'a> {
 			versions,
 		};
 
-		Ok(kdd)
+		Ok(Kdd::from(kdd_config))
 	}
 }
 

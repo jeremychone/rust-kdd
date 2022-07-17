@@ -7,7 +7,7 @@ use std::io::stdin;
 use super::{error::KddError, Kdd, Realm};
 use crate::utils::{exec_cmd_args, exec_to_stdout, path_to_string};
 
-impl<'a> Kdd<'a> {
+impl Kdd {
 	pub fn k_apply(&self, realm: &Realm, names: Option<&[&str]>) -> Result<(), KddError> {
 		let k8s_out_files = self.k_templates(realm, names, false)?;
 

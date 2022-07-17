@@ -5,7 +5,7 @@
 use super::{error::KddError, realm::Realm, Block, Kdd};
 use crate::utils::exec_cmd_args;
 
-impl<'a> Kdd<'a> {
+impl Kdd {
 	// e.g., docker build --rm -t localhost:5000/cstar-db:DROP-002-SNAPSHOT .
 	pub fn d_build_block(&self, block: &Block) -> Result<(), KddError> {
 		let cwd = self.get_block_dir(&block);
