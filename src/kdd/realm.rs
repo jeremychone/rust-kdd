@@ -213,7 +213,18 @@ impl Kdd {
 		match self.realms.get(name) {
 			None => Err(KddError::RealmNotFound(name.to_string())),
 			Some(realm) => match &realm.context {
-				Some(ctx) => self.k_set_context(&ctx),
+				Some(ctx) => {
+				    let ctxs = self.k_get_contexts()?;
+					let ctxs_set: HashSet<_> = HashSet::from_iter(ctxs);
+
+					if !ctxs_set.contains(ctx) {
+					   self.k_create_context(&ctx);
+					}
+
+					self.k_set_context(&ctx);
+
+					Ok(())
+				},
 				None => Err(KddError::RealmHasNoContext(name.to_string())),
 			},
 		}
