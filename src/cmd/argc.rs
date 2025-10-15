@@ -16,6 +16,7 @@ pub fn cmd_app() -> Command<'static> {
 		.subcommand(sub_kaction(("kdelete", "kd")))
 		.subcommand(sub_klog())
 		.subcommand(sub_kexec())
+		.subcommand(sub_kctx())
 		.subcommand(sub_version())
 }
 
@@ -94,6 +95,28 @@ fn sub_klog() -> Command<'static> {
 				.help("Service names that match the pod label run: system-_service_name_ (e.g., 'web-server' for label.run = cstar-web-server)"),
 		)
 		.arg(arg_root_dir())
+}
+
+fn sub_kctx() -> Command<'static> {
+	Command::new("kctx")
+		.about("Manage Kubernetes contexts")
+		.subcommand(
+			Command::new("list")
+				.about("List all available Kubernetes contexts")
+				.arg(arg_root_dir()),
+		)
+		.subcommand(
+			Command::new("create")
+				.about("Create a new Kubernetes context")
+				.arg(Arg::new("name").help("Name of the Kubernetes context to create").required(true))
+				.arg(arg_root_dir()),
+		)
+		.subcommand(
+			Command::new("delete")
+				.about("Delete an existing Kubernetes context")
+				.arg(Arg::new("name").help("Name of the Kubernetes context to delete").required(true))
+				.arg(arg_root_dir()),
+		)
 }
 
 fn sub_kexec() -> Command<'static> {
