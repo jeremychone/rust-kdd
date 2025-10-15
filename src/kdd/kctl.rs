@@ -67,6 +67,13 @@ impl Kdd {
 		}
 	}
 
+	pub fn k_delete_ctx(&self, ctx: &str) -> Result<(), KddError> {
+		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "delete-context", ctx], false) {
+			Ok(_) => Ok(()),
+			Err(e) => Err(KddError::KubectlFail(e.to_string())),
+		}
+	}
+
 	pub fn k_current_context(&self) -> Result<String, KddError> {
 		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "current-context"], false) {
 			Ok(name) => Ok(name.trim().to_string()),
