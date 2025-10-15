@@ -11,6 +11,7 @@ use indexmap::IndexMap;
 use regex::Regex;
 use serde_json::Value;
 use std::{collections::HashMap, env, fs::read_to_string, path::PathBuf};
+use toml::Table;
 use yaml_rust::{Yaml, YamlLoader};
 
 const KDD_KEY_SYSTEM: &str = "system";
@@ -74,9 +75,7 @@ impl Kdd {
 			let overlay_kdd_part = parse_kdd_part(&dir, &overlay_kdd_yaml_txt, &mut root_vars, &hbs, &realm_base)?;
 
 			// overlay the new realms
-			let KddPart {
-				realms: overlay_realms, ..
-			} = overlay_kdd_part;
+			let KddPart { realms: overlay_realms, .. } = overlay_kdd_part;
 			for (name, realm) in overlay_realms.into_iter() {
 				realms.insert(name, realm);
 			}
@@ -222,6 +221,7 @@ fn merge_vars(root_vars: &mut HashMap<String, String>, vars: HashMap<String, Str
 // region:    Load Vars
 enum FileVarsSource {
 	Json(PathBuf),
+	Toml(PathBuf),
 	NotSupported(PathBuf),
 }
 
@@ -230,6 +230,7 @@ impl FileVarsSource {
 		if let Some(Some(ext)) = path.extension().map(|v| v.to_str().map(|v| v.to_lowercase())) {
 			match ext.as_str() {
 				"json" => FileVarsSource::Json(path),
+				"toml" => FileVarsSource::Toml(path),
 				_ => FileVarsSource::NotSupported(path),
 			}
 		} else {
@@ -290,11 +291,37 @@ fn load_vars_from_file(dir: &PathBuf, yaml_item: &Yaml, vars: &mut HashMap<Strin
 					println!("KDD WARNING - Cannot read from {} because {} - SKIP", path.to_string_lossy(), ex);
 				}
 			},
+			FileVarsSource::Toml(path) => match read_to_string(&path) {
+				Ok(content) => match toml::from_str::<Table>(&content) {
+					Ok(src_toml) => {
+						for extract_item in extract {
+							if let Some(var_path) = extract_item.as_str() {
+								let value_opt = src_toml.get(var_path).or_else(|| {
+									src_toml.values().find_map(|val| {
+										if let toml::Value::Table(sub_table) = val {
+											sub_table.get(var_path)
+										} else {
+											None
+										}
+									})
+								});
+								if let Some(value) = value_opt {
+									let value_trimmed = value.to_string().trim_matches('"').to_owned();
+									vars.insert(var_path.to_owned(), value_trimmed);
+								}
+							}
+						}
+					}
+					Err(ex) => {
+						println!("KDD WARNING - Invalid toml for {} ex: {} - SKIP", path.to_string_lossy(), ex);
+					}
+				},
+				Err(ex) => {
+					println!("KDD WARNING - Cannot read from {} because {} - SKIP", path.to_string_lossy(), ex);
+				}
+			},
 			FileVarsSource::NotSupported(path) => {
-				println!(
-					"KDD WARNING - file {} not supported as a variable source. - SKIP",
-					path.to_string_lossy()
-				);
+				println!("KDD WARNING - file {} not supported as a variable source. - SKIP", path.to_string_lossy());
 			}
 		}
 	}
@@ -384,9 +411,12 @@ fn parse_blocks(y_blocks: &Yaml) -> Vec<Block> {
 
 // region:    Builders Parser
 fn parse_builders(y_builders: &Yaml) -> Vec<Builder> {
-	let builders = y_builders
-		.as_vec()
-		.map(|y_builders| y_builders.iter().filter_map(|x| Builder::from_yaml(x)).collect::<Vec<Builder>>());
+	let builders = y_builders.as_vec().map(|y_builders| {
+		y_builders
+			.iter()
+			.filter_map(|x| Builder::from_yaml(x))
+			.collect::<Vec<Builder>>()
+	});
 
 	builders.unwrap_or_else(|| Vec::new())
 }
@@ -395,9 +425,12 @@ fn parse_builders(y_builders: &Yaml) -> Vec<Builder> {
 
 // region:    Version Parser
 fn parser_versions(y_versions: &Yaml) -> Vec<Version> {
-	let versions = y_versions
-		.as_vec()
-		.map(|y_versions| y_versions.iter().filter_map(|x| Version::from_yaml(x)).collect::<Vec<Version>>());
+	let versions = y_versions.as_vec().map(|y_versions| {
+		y_versions
+			.iter()
+			.filter_map(|x| Version::from_yaml(x))
+			.collect::<Vec<Version>>()
+	});
 
 	versions.unwrap_or_else(|| Vec::new())
 }
