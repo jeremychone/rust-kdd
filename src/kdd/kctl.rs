@@ -60,6 +60,13 @@ impl Kdd {
 		}
 	}
 
+	pub fn k_list_ctx(&self) -> Result<Vec<String>, KddError> {
+		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "get-contexts", "-o=name"], false) {
+			Ok(ctxs) => Ok(ctxs.lines().map(|s| s.trim().to_string()).collect()),
+			Err(e) => Err(KddError::KubectlFail(e.to_string())),
+		}
+	}
+
 	pub fn k_current_context(&self) -> Result<String, KddError> {
 		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "current-context"], false) {
 			Ok(name) => Ok(name.trim().to_string()),
