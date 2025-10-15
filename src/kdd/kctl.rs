@@ -53,21 +53,21 @@ impl Kdd {
 		Ok(())
 	}
 
-	pub fn k_create_ctx(&self, ctx: &str) -> Result<(), KddError> {
+	pub fn k_create_context(&self, ctx: &str) -> Result<(), KddError> {
 		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "set-context", ctx], false) {
 			Ok(_) => Ok(()),
 			Err(e) => Err(KddError::KubectlFail(e.to_string())),
 		}
 	}
 
-	pub fn k_list_ctx(&self) -> Result<Vec<String>, KddError> {
+	pub fn k_list_context(&self) -> Result<Vec<String>, KddError> {
 		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "get-contexts", "-o=name"], false) {
 			Ok(ctxs) => Ok(ctxs.lines().map(|s| s.trim().to_string()).collect()),
 			Err(e) => Err(KddError::KubectlFail(e.to_string())),
 		}
 	}
 
-	pub fn k_delete_ctx(&self, ctx: &str) -> Result<(), KddError> {
+	pub fn k_delete_context(&self, ctx: &str) -> Result<(), KddError> {
 		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "delete-context", ctx], false) {
 			Ok(_) => Ok(()),
 			Err(e) => Err(KddError::KubectlFail(e.to_string())),

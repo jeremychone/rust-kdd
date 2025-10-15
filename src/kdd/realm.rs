@@ -11,6 +11,7 @@ use crate::utils::yamls::{as_bool, as_string, as_strings, to_string};
 use std::{
 	collections::{HashMap, HashSet},
 	fs::read_dir,
+	io::stdin,
 	path::PathBuf,
 };
 use yaml_rust::Yaml;
@@ -60,8 +61,7 @@ impl Realm {
 
 	pub fn is_local_registry(&self) -> bool {
 		// return true if no registry or registry is localhost or 127.0.0.1
-		self
-			.registry
+		self.registry
 			.as_ref()
 			.map(|registry| registry.contains("localhost") || registry.contains("127.0.0.1"))
 			.unwrap_or(true)
@@ -101,10 +101,9 @@ impl Realm {
 					for path in paths {
 						if let Ok(path) = path {
 							let path = path.path();
-							if let (Some(stem), Some(ext)) = (
-								path.file_stem().map(|v| v.to_str()).flatten(),
-								path.extension().map(|v| v.to_str()).flatten(),
-							) {
+							if let (Some(stem), Some(ext)) =
+								(path.file_stem().map(|v| v.to_str()).flatten(), path.extension().map(|v| v.to_str()).flatten())
+							{
 								if path.is_file() && ext.to_lowercase() == "yaml" && !stems_set.contains(stem) {
 									stems_set.insert(stem.to_string());
 									yaml_paths.push(path);
@@ -193,8 +192,7 @@ impl Realm {
 //// Kdd Realm Methods
 impl Kdd {
 	pub fn realm_for_ctx(&self, ctx: &str) -> Option<&Realm> {
-		self
-			.realms()
+		self.realms()
 			.into_iter()
 			.find(|v| v.context.as_deref().map(|vc| vc == ctx).unwrap_or(false))
 	}
@@ -212,10 +210,32 @@ impl Kdd {
 	pub fn realm_set(&self, name: &str) -> Result<(), KddError> {
 		match self.realms.get(name) {
 			None => Err(KddError::RealmNotFound(name.to_string())),
-			Some(realm) => match &realm.context {
-				Some(ctx) => self.k_set_context(&ctx),
-				None => Err(KddError::RealmHasNoContext(name.to_string())),
-			},
+			Some(realm) => {
+				match &realm.context {
+					Some(ctx) => {
+						let ctxs = self.k_list_context()?;
+						let ctxs_set: HashSet<_> = HashSet::from_iter(ctxs);
+
+						if !ctxs_set.contains(ctx) {
+							println!("Kubernetes context {} does not exist. Do you want to create it and set it? (YES to continue, anything else to cancel)", ctx);
+							let mut guess = String::new();
+							stdin().read_line(&mut guess).expect("Failed to read line");
+
+							if guess.trim() != "YES" {
+								println!("Canceling kubernetes context creation");
+								return Ok(());
+							}
+							self.k_create_context(&ctx);
+							self.k_set_context(&ctx);
+						} else {
+							self.k_set_context(&ctx);
+						}
+
+						Ok(())
+					}
+					None => Err(KddError::RealmHasNoContext(name.to_string())),
+				}
+			}
 		}
 	}
 
@@ -240,7 +260,11 @@ impl Kdd {
 
 // region:    Utils
 fn tr_print(sel: bool, realm: &str, typ: &str, prj: &str, ctx: &str) {
-	let sel = if sel { "*" } else { " " };
+	let sel = if sel {
+		"*"
+	} else {
+		" "
+	};
 	println!("{}  {: <12}{: <14}{: <20}{}", sel, realm, typ, prj, ctx);
 }
 // endregion: Utils

@@ -37,6 +37,7 @@ pub fn cmd_run() -> Result<(), AppError> {
 		Some(("kdelete", sub_cmd)) => exec_kaction("delete", root_dir, sub_cmd)?,
 		Some(("klog", sub_cmd)) => exec_klog(root_dir, sub_cmd)?,
 		Some(("kexec", sub_cmd)) => exec_kexec(root_dir, sub_cmd)?,
+		Some(("kctx", sub_cmd)) => exec_kctx(root_dir, sub_cmd)?,
 		Some(("version", sub_cmd)) => exec_version(root_dir, sub_cmd)?,
 		_ => {
 			// needs cmd_app version as the orginal got consumed by get_matches
@@ -121,6 +122,52 @@ fn exec_kaction(action: &str, root_dir: &str, argc: &ArgMatches) -> Result<(), A
 		println!("Cannot run '{}', no current realm", action);
 	}
 
+	Ok(())
+}
+
+fn exec_kctx(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
+	match argc.subcommand() {
+		Some(("list", _)) => exec_kctx_list(root_dir)?,
+		Some(("create", sub_m)) => exec_kctx_create(root_dir, sub_m)?,
+		Some(("delete", sub_m)) => exec_kctx_delete(root_dir, sub_m)?,
+		_ => {
+			println!("Available actions: list, create, delete");
+		}
+	}
+	Ok(())
+}
+
+fn exec_kctx_list(root_dir: &str) -> Result<(), AppError> {
+	let kdd = load_kdd(root_dir)?;
+	let ctxs = kdd.k_list_context()?;
+
+	if ctxs.is_empty() {
+		println!("No Kubernetes contexts found.");
+	} else {
+		println!("Available Kubernetes contexts:");
+		for ctx in ctxs {
+			println!("  - {}", ctx);
+		}
+	}
+
+	Ok(())
+}
+
+fn exec_kctx_create(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
+	let kdd = load_kdd(root_dir)?;
+	let name = argc.get_one::<String>("name").expect("Missing required argument <name>");
+	println!("Creating Kubernetes context `{}`...", name);
+	kdd.k_create_context(name)?;
+	println!("Created context `{}`", name);
+	Ok(())
+}
+
+fn exec_kctx_delete(root_dir: &str, argc: &ArgMatches) -> Result<(), AppError> {
+	let kdd = load_kdd(root_dir)?;
+	let name = argc.get_one::<String>("name").expect("Missing required argument <name>");
+	println!("Deleting Kubernetes context `{}`...", name);
+	kdd.k_delete_context(name)?;
+	println!("Deleted context `{}`", name);
 	Ok(())
 }
 
