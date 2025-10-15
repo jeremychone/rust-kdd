@@ -35,10 +35,7 @@ impl Kdd {
 		let k8s_out_files = self.k_templates(realm, names, false)?;
 
 		if realm.confirm_delete {
-			println!(
-				"Are you sure you want to delete the services in realm {}? (YES to continue, anything else to cancel)",
-				realm.name
-			);
+			println!("Are you sure you want to delete the services in realm {}? (YES to continue, anything else to cancel)", realm.name);
 			let mut guess = String::new();
 			stdin().read_line(&mut guess).expect("Failed to read line");
 			if guess.trim() != "YES" {
@@ -54,6 +51,13 @@ impl Kdd {
 		}
 
 		Ok(())
+	}
+
+	pub fn k_create_ctx(&self, ctx: &str) -> Result<(), KddError> {
+		match exec_to_stdout(Some(&self.dir), "kubectl", &["config", "set-context", ctx], false) {
+			Ok(_) => Ok(()),
+			Err(e) => Err(KddError::KubectlFail(e.to_string())),
+		}
 	}
 
 	pub fn k_current_context(&self) -> Result<String, KddError> {
